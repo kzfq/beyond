@@ -22,6 +22,8 @@ import os
 import sys
 import traceback
 
+import ansi
+
 for _stream in (sys.stdout, sys.stderr):
     try:
         _stream.reconfigure(encoding="utf-8", errors="replace")
@@ -76,6 +78,53 @@ def help_text() -> str:
 
 def ping_text(latency_s) -> str:
     return f"Pong — **{round((latency_s or 0) * 1000)}ms**"
+
+def ansi_help() -> str:
+    cmds = [
+        ("help", "this menu"),
+        ("ping", "gateway latency"),
+        ("stats", "account stats"),
+        ("rpc", "rich presence — rpc <type>"),
+        ("status", "online / idle / dnd / invisible"),
+        ("platform", "spoof platform"),
+        ("multiplatform", "spoof multiple platforms"),
+        ("msglog", "message logger"),
+        ("setpfp", "set avatar"),
+        ("setbanner", "set banner"),
+        ("setbio", "set about me"),
+        ("setpronouns", "set pronouns"),
+        ("setdisplayname", "set display name"),
+        ("setaccent", "set accent colour"),
+        ("profile", "show your profile"),
+    ]
+    return ansi.header("help") + "\n" + ansi.command_list(cmds) + "\n" + ansi.footer_main()
+
+def ansi_ping(latency_s) -> str:
+    ms = round((latency_s or 0) * 1000)
+    return ansi.header("ping") + "\n" + ansi.command_list([("Ping", f"{ms}ms")])
+
+def ansi_stats() -> str:
+    s = LAST_STATS
+    if not s:
+        return ansi._block("No stats yet.")
+    handle = (f"{s.get('username','')}#{s['discriminator']}"
+              if s.get("discriminator") else f"@{s.get('username','')}")
+    try:
+        st = _rpc_cog._status if _rpc_cog else "online"
+    except Exception:
+        st = "online"
+    pairs = [
+        ("Name", str(s.get("globalName", "?"))),
+        ("Handle", handle),
+        ("User ID", str(s.get("id", ""))),
+        ("Created", str(s.get("created", "?"))),
+        ("Servers", str(s.get("servers", 0))),
+        ("Friends", str(s.get("friends", 0))),
+        ("Nitro", str(s.get("nitro", "None"))),
+        ("Badges", str(s.get("badges", 0))),
+        ("Status", str(st)),
+    ]
+    return ansi.header("stats") + "\n" + ansi.command_list(pairs)
 
 def _presence_line() -> str:
     try:
@@ -229,15 +278,15 @@ async def _respond(ctx, text):
 def register_commands(bot):
     @bot.command(name="help", aliases=["cmds", "commands"])
     async def _help(ctx):
-        await _respond(ctx, help_text())
+        await _respond(ctx, ansi_help())
 
     @bot.command(name="ping")
     async def _ping(ctx):
-        await _respond(ctx, ping_text(bot.latency))
+        await _respond(ctx, ansi_ping(bot.latency))
 
     @bot.command(name="stats")
     async def _stats(ctx):
-        await _respond(ctx, stats_text())
+        await _respond(ctx, ansi_stats())
 
 async def run_selfbot(bot):
     register_commands(bot)

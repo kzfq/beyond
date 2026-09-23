@@ -1015,7 +1015,7 @@ class RPC(Cog, ASCIIMixin):
             await self._send_payload([])
             self._active.clear()
             self._save_rpc()
-            await self.asuccess(ctx, "rich presence cleared", delay=8)
+            await self.asuccess(ctx, "rich presence cleared", delay=15)
             return
 
         if rpc_type == "preset":
@@ -1024,11 +1024,11 @@ class RPC(Cog, ASCIIMixin):
 
             if sub == "save":
                 if not name:
-                    await self.aerror(ctx, "usage: .rpc preset save <name>", delay=8)
+                    await self.aerror(ctx, "usage: .rpc preset save <name>", delay=15)
                     return
                 self._presets[name] = dict(self._active)
                 self._save_presets()
-                await self.asuccess(ctx, f"preset '{name}' saved ({len(self._active)} slot(s))", delay=8)
+                await self.asuccess(ctx, f"preset '{name}' saved ({len(self._active)} slot(s))", delay=15)
 
             elif sub == "load":
                 if not name or name not in self._presets:
@@ -1041,22 +1041,22 @@ class RPC(Cog, ASCIIMixin):
                 self._save_rpc()
                 acts = [a for a in [await self._build_activity(c) for c in self._active.values()] if a]
                 await self._send_payload(acts)
-                await self.asuccess(ctx, f"preset '{name}' loaded", delay=8)
+                await self.asuccess(ctx, f"preset '{name}' loaded", delay=15)
 
             elif sub == "list":
                 if not self._presets:
-                    await self.aprint(ctx, "Presets", ["no presets saved"], delay=8)
+                    await self.aprint(ctx, "Presets", ["no presets saved"], delay=15)
                     return
                 lines = [f"{n}: {list(v.keys())}" for n, v in self._presets.items()]
                 await self.aprint(ctx, "Presets", lines, delay=12)
 
             elif sub == "delete":
                 if not name or name not in self._presets:
-                    await self.aerror(ctx, f"preset '{name}' not found", delay=8)
+                    await self.aerror(ctx, f"preset '{name}' not found", delay=15)
                     return
                 del self._presets[name]
                 self._save_presets()
-                await self.asuccess(ctx, f"preset '{name}' deleted", delay=8)
+                await self.asuccess(ctx, f"preset '{name}' deleted", delay=15)
 
             else:
                 await self.aprint(ctx, "Preset Usage", [
@@ -1084,7 +1084,7 @@ class RPC(Cog, ASCIIMixin):
                 self._stack = [e for e in self._stack if e.get("rpc_type") != rt]
                 self._stack.append(inner_cmd)
                 self._save_stack()
-                await self.asuccess(ctx, f"stack: {len(self._stack)} slot(s) — added {rt}", delay=8)
+                await self.asuccess(ctx, f"stack: {len(self._stack)} slot(s) — added {rt}", delay=15)
 
             elif sub == "remove":
                 rt = args[2].lower() if len(args) > 2 else ""
@@ -1092,13 +1092,13 @@ class RPC(Cog, ASCIIMixin):
                 self._stack = [e for e in self._stack if e.get("rpc_type") != rt]
                 self._save_stack()
                 if len(self._stack) < before:
-                    await self.asuccess(ctx, f"removed {rt} from stack", delay=8)
+                    await self.asuccess(ctx, f"removed {rt} from stack", delay=15)
                 else:
-                    await self.aerror(ctx, f"'{rt}' not in stack", delay=8)
+                    await self.aerror(ctx, f"'{rt}' not in stack", delay=15)
 
             elif sub == "apply":
                 if not self._stack:
-                    await self.aerror(ctx, "stack is empty — add entries first", delay=8)
+                    await self.aerror(ctx, "stack is empty — add entries first", delay=15)
                     return
                 for rt in list(self._rotation_tasks):
                     self._stop_rotation(rt)
@@ -1111,7 +1111,7 @@ class RPC(Cog, ASCIIMixin):
 
             elif sub == "list":
                 if not self._stack:
-                    await self.aprint(ctx, "Stack", ["empty — use: .rpc stack add <type> [kv...]"], delay=8)
+                    await self.aprint(ctx, "Stack", ["empty — use: .rpc stack add <type> [kv...]"], delay=15)
                     return
                 lines = [
                     f"#{i+1} [{e.get('rpc_type','?')}] — {' '.join(f'{k}={v}' for k,v in e.items() if k != 'rpc_type')[:80]}"
@@ -1122,7 +1122,7 @@ class RPC(Cog, ASCIIMixin):
             elif sub == "clear":
                 self._stack.clear()
                 self._save_stack()
-                await self.asuccess(ctx, "stack cleared", delay=8)
+                await self.asuccess(ctx, "stack cleared", delay=15)
 
             else:
                 await self.aprint(ctx, "Stack Usage", [
@@ -1147,7 +1147,7 @@ class RPC(Cog, ASCIIMixin):
                 try:
                     interval = int(args[2])
                 except ValueError:
-                    await self.aerror(ctx, "interval must be a number (seconds)", delay=8)
+                    await self.aerror(ctx, "interval must be a number (seconds)", delay=15)
                     return
                 inner_cmd = _parse_kv(args[3:])
                 if inner_cmd.get("rpc_type") not in _RPC_TYPES:
@@ -1155,23 +1155,23 @@ class RPC(Cog, ASCIIMixin):
                     return
                 self._named_rotation.append({"cmd": inner_cmd, "interval": interval})
                 self._save_named_rotation()
-                await self.asuccess(ctx, f"rotation: {len(self._named_rotation)} entr(ies) — {inner_cmd['rpc_type']} every {interval}s", delay=8)
+                await self.asuccess(ctx, f"rotation: {len(self._named_rotation)} entr(ies) — {inner_cmd['rpc_type']} every {interval}s", delay=15)
 
             elif sub == "start":
                 if not self._named_rotation:
-                    await self.aerror(ctx, "rotation is empty — add entries first", delay=8)
+                    await self.aerror(ctx, "rotation is empty — add entries first", delay=15)
                     return
                 self._stop_named_rotation()
                 self._named_rotation_task = asyncio.ensure_future(self._run_named_rotation())
-                await self.asuccess(ctx, f"rotation started — {len(self._named_rotation)} entr(ies)", delay=8)
+                await self.asuccess(ctx, f"rotation started — {len(self._named_rotation)} entr(ies)", delay=15)
 
             elif sub == "stop":
                 self._stop_named_rotation()
-                await self.asuccess(ctx, "rotation stopped", delay=8)
+                await self.asuccess(ctx, "rotation stopped", delay=15)
 
             elif sub == "list":
                 if not self._named_rotation:
-                    await self.aprint(ctx, "Rotation", ["empty"], delay=8)
+                    await self.aprint(ctx, "Rotation", ["empty"], delay=15)
                     return
                 lines = [
                     f"#{i+1}: {e['cmd'].get('rpc_type', '?')} — every {e['interval']}s"
@@ -1183,7 +1183,7 @@ class RPC(Cog, ASCIIMixin):
                 self._stop_named_rotation()
                 self._named_rotation.clear()
                 self._save_named_rotation()
-                await self.asuccess(ctx, "rotation cleared", delay=8)
+                await self.asuccess(ctx, "rotation cleared", delay=15)
 
             elif sub == "remove":
                 idx_str = args[2] if len(args) > 2 else ""
@@ -1192,11 +1192,11 @@ class RPC(Cog, ASCIIMixin):
                     if idx < 0 or idx >= len(self._named_rotation):
                         raise ValueError
                 except ValueError:
-                    await self.aerror(ctx, f"provide a valid entry number (1-{len(self._named_rotation)})", delay=8)
+                    await self.aerror(ctx, f"provide a valid entry number (1-{len(self._named_rotation)})", delay=15)
                     return
                 removed = self._named_rotation.pop(idx)
                 self._save_named_rotation()
-                await self.asuccess(ctx, f"removed #{idx+1}: {removed['cmd'].get('rpc_type', '?')}", delay=8)
+                await self.asuccess(ctx, f"removed #{idx+1}: {removed['cmd'].get('rpc_type', '?')}", delay=15)
 
             else:
                 await self.aprint(ctx, "Rotation Usage", [
@@ -1219,7 +1219,7 @@ class RPC(Cog, ASCIIMixin):
             await self._build_and_send(cmd)
             self._active.clear()
             self._save_rpc()
-            await self.asuccess(ctx, "rich presence cleared", delay=8)
+            await self.asuccess(ctx, "rich presence cleared", delay=15)
             return
 
         interval = int(cmd.get("rotate_interval", _DEFAULT_ROTATE_INTERVAL))
@@ -1254,7 +1254,7 @@ class RPC(Cog, ASCIIMixin):
         await self._send_payload([])
         self._active.clear()
         self._save_rpc()
-        await self.asuccess(ctx, "rich presence cleared", delay=8)
+        await self.asuccess(ctx, "rich presence cleared", delay=15)
 
     async def _gw_reconnect(self):
         """Close and reopen the main gateway so a new IDENTIFY fires."""
@@ -1275,13 +1275,13 @@ class RPC(Cog, ASCIIMixin):
         rest = " ".join(ctx.message.content.split()[1:]).strip().lower()
 
         if rest not in _PLATFORM_PROPS:
-            await self.aerror(ctx, f"valid: {', '.join(_PLATFORM_PROPS)}", delay=8)
+            await self.aerror(ctx, f"valid: {', '.join(_PLATFORM_PROPS)}", delay=15)
             return
 
         set_active_platform(rest)
         persistence.set_key("platform", rest)
 
-        await self.aprint(ctx, "Platform", [f"set to {rest}", "reconnecting..."], delay=8)
+        await self.aprint(ctx, "Platform", [f"set to {rest}", "reconnecting..."], delay=15)
 
         async def _do():
             await asyncio.sleep(0.5)

@@ -104,6 +104,26 @@ the app generates a 256-bit identity and a strong password, enrolls with the
 relay, gets a random `slug`, and saves it locally so your link stays the same.
 The relay stores only **Argon2id hashes** — never plaintext.
 
+### ⚡ One-line install (recommended)
+
+Installs anything missing, clones, configures, and starts your panel:
+
+**Linux / macOS / Termux**
+```bash
+curl -fsSL https://raw.githubusercontent.com/kzfq/beyond/main/install.sh | bash
+```
+**Windows (PowerShell)**
+```powershell
+irm https://raw.githubusercontent.com/kzfq/beyond/main/install.ps1 | iex
+```
+
+It prints your **link + password** at the end — keep the window open (the panel
+is served from your machine). Re-running updates to the latest version. On
+Android/Termux it auto-sets-up a small Ubuntu container (the Discord TLS library
+can't build on bare Termux).
+
+### Manual setup
+
 **1.** Copy the sample config and add your relay's enrollment key:
 
 ```bash

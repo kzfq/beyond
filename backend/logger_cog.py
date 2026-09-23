@@ -17,6 +17,7 @@ already receives. Nothing is sent anywhere except the local Beyond panel.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections import OrderedDict
 from typing import Optional
@@ -258,12 +259,22 @@ class MessageLogger(Cog):
         async def reply(text):
             _emit({"type": "command"})
             try:
-                await ctx.reply(text)
+                await ctx.message.delete()
             except Exception:
-                try:
-                    await ctx.send(text)
-                except Exception:
-                    pass
+                pass
+            m = None
+            try:
+                m = await ctx.send(text)
+            except Exception:
+                return
+            if m is not None:
+                async def _cleanup():
+                    await asyncio.sleep(15)
+                    try:
+                        await m.delete()
+                    except Exception:
+                        pass
+                asyncio.create_task(_cleanup())
 
         if sub in ("on", "enable"):
             self.apply_config({"enabled": True})

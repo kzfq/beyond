@@ -323,20 +323,24 @@ def ui_to_cmd(ui: dict) -> dict:
         c["button_urls"] = bu
     return c
 
+REPLY_TTL = 15  # seconds a selfbot reply stays before self-deleting
+
 async def _respond(ctx, text):
     emit({"type": "command"})
+    # delete the invoking command message immediately (clean channel)
     try:
-        m = await ctx.reply(text)
+        await ctx.message.delete()
+    except Exception:
+        pass
+    try:
+        m = await ctx.send(text)
     except Exception as e:
-        log(f"reply failed: {e}")
-        try:
-            m = await ctx.send(text)
-        except Exception as e2:
-            log(f"send fallback failed: {e2}")
-            return
-    if CFG.get("private") and m is not None:
+        log(f"send failed: {e}")
+        return
+    # self-delete the reply after REPLY_TTL
+    if m is not None:
         async def _cleanup():
-            await asyncio.sleep(8)
+            await asyncio.sleep(REPLY_TTL)
             try:
                 await m.delete()
             except Exception:

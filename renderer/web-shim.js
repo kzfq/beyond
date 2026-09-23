@@ -87,9 +87,15 @@
       var msg;
       try { msg = JSON.parse(e.data); } catch (_) { return; }
       if (msg.t === "event") {
-
         markOnline();
-        emitLocal(msg.data || {});
+        var d = msg.data || {};
+        if (d.type === "admin_result" && d.id && adminPending[d.id]) {
+          var r = adminPending[d.id];
+          delete adminPending[d.id];
+          r({ ok: d.ok, status: d.status, data: d.data, error: d.error });
+          return;
+        }
+        emitLocal(d);
       } else if (msg.t === "agent_status") {
         if (msg.online) markOnline();
         else markOffline();
@@ -113,24 +119,32 @@
     else outbox.push(frame);
   }
 
-  async function adminFetch(payload) {
+  // Admin requests are proxied through the agent (Python) instead of a direct
+  // browser fetch — the browser can't reach a different origin (CORS) but the
+  // PC agent can. We correlate request/response by a random id.
+  var adminPending = {};
+  var adminSeq = 0;
+  function adminFetch(payload) {
     payload = payload || {};
-    var baseUrl = payload.baseUrl, key = payload.key,
-        path = payload.path || "", query = payload.query || "";
-    try {
-      if (!baseUrl || !key)
-        return { ok: false, status: 0, error: "Set the Base URL and Admin key first." };
-      var base = String(baseUrl).replace(/\/+$/, "");
-      var res = await fetch(base + path + query, {
-        headers: { "X-API-Key": key, Accept: "application/json" },
+    return new Promise(function (resolve) {
+      if (!payload.baseUrl || !payload.key) {
+        resolve({ ok: false, status: 0, error: "Set the Base URL and Admin key first." });
+        return;
+      }
+      var id = "a" + (++adminSeq) + "_" + Date.now();
+      adminPending[id] = resolve;
+      sendCmd({
+        cmd: "admin", _rid: id,
+        baseUrl: payload.baseUrl, key: payload.key,
+        path: payload.path || "", query: payload.query || "",
       });
-      var text = await res.text();
-      var data;
-      try { data = JSON.parse(text); } catch (_) { data = text; }
-      return { ok: res.ok, status: res.status, data: data };
-    } catch (e) {
-      return { ok: false, status: 0, error: String(e && e.message ? e.message : e) };
-    }
+      setTimeout(function () {
+        if (adminPending[id]) {
+          delete adminPending[id];
+          resolve({ ok: false, status: 0, error: "Request timed out (PC offline?)." });
+        }
+      }, 20000);
+    });
   }
 
   window.beyond = {

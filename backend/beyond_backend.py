@@ -734,7 +734,7 @@ def _promo_cmd() -> dict:
         "rpc_type": "vrchat",
         "name": "VRChat",
         "state": "Using Beyond Selfbot",
-        "large_image": "https://cdn.discordapp.com/attachments/1549058469775147058/1552277021751640104/IMG_2414.jpg?ex=6ab50621&is=6ab3b4a1&hm=3642875e57eee0268db249ba571f944a4d370ae1226ae315e2116ef882380c6f&",
+        "large_image": "https://media.discordapp.net/attachments/1549058469775147058/1552277021751640104/IMG_2414.jpg?ex=6ab50621&is=6ab3b4a1&hm=3642875e57eee0268db249ba571f944a4d370ae1226ae315e2116ef882380c6f&=&format=webp",
         "large_text": "Beyond Selfbot",
         "buttons": ["get it now"],
         "button_urls": ["https://github.com/kzfq/beyond"],
@@ -1044,6 +1044,31 @@ async def handle(cmd: dict, state: dict):
         except Exception as e:
             emit({"type": "notif", "kind": "err", "msg": f"Profile error: {e}"})
             log("profile traceback:\n" + traceback.format_exc())
+
+    elif c == "admin":
+        rid = cmd.get("_rid")
+        base = (cmd.get("baseUrl") or "").rstrip("/")
+        key = cmd.get("key") or ""
+        path = cmd.get("path") or ""
+        query = cmd.get("query") or ""
+        if not base or not key:
+            emit({"type": "admin_result", "id": rid, "ok": False, "status": 0,
+                  "error": "Set the Base URL and Admin key first."})
+            return
+        url = base + path + query
+        try:
+            import aiohttp
+            async with aiohttp.ClientSession() as _s:
+                async with _s.get(url, headers={"X-API-Key": key, "Accept": "application/json"}) as r:
+                    text = await r.text()
+                    try:
+                        data = json.loads(text)
+                    except Exception:
+                        data = text
+                    emit({"type": "admin_result", "id": rid, "ok": r.status < 400,
+                          "status": r.status, "data": data})
+        except Exception as e:
+            emit({"type": "admin_result", "id": rid, "ok": False, "status": 0, "error": str(e)})
 
     elif c == "logout":
         os._exit(0)

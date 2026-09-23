@@ -50,6 +50,10 @@ BOT_HELP = {
     "Logger": [("logger", "Track keywords/mentions, log deletes & edits")],
     "Profile": [("profile", "Set display name, avatar, banner, bio, pronouns, accent")],
     "Anti-GC": [("antigc", "Auto-leave group-DM traps (+ block/msg/name/icon/webhook/whitelist)")],
+    "Group Chat": [("gclockdown", "Re-add removed GC members"),
+                   ("gcantiadd", "Kick users added to the GC"),
+                   ("gcwhitelist", "Exempt a user from GC protection"),
+                   ("gcunwhitelist", "Remove a user from the GC whitelist")],
     "Friends": [("friendcount", "Friend/block/pending counts"),
                 ("friend", "Send a friend request"),
                 ("unfriend", "Remove a friend"),
@@ -87,6 +91,7 @@ _logger_cog = None
 _profile_cog = None
 _antigc_cog = None
 _friends_cog = None
+_gc_cog = None
 _DISCOVER_RPC_KEY = "beyond_promo"
 
 def emit(obj: dict) -> None:
@@ -165,6 +170,15 @@ HELP = {
             ("closedms", "closedms", "Close all open DM channels."),
             ("autoreply", "autoreply <@user> <msg>", "Auto-reply to a user's messages."),
             ("autoreplystop", "autoreplystop [@user]", "Stop auto-reply (one user or all)."),
+        ],
+    },
+    "gc": {
+        "desc": "GC lockdown & security",
+        "cmds": [
+            ("gclockdown", "gclockdown <on/off>", "Lock GC membership — re-adds removed users."),
+            ("gcantiadd", "gcantiadd <on/off>", "Kick anyone added to the GC."),
+            ("gcwhitelist", "gcwhitelist <user>", "Exempt a user from GC protection."),
+            ("gcunwhitelist", "gcunwhitelist <user>", "Remove a user from the GC whitelist."),
         ],
     },
     "antigc": {
@@ -1075,6 +1089,45 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
             await _rpc_reply(interaction, "Log into your account in Beyond first."); return
         await _rpc_reply(interaction, _friends_cog.stop_autoreply(user or ""))
 
+    def _need_gc():
+        return _gc_cog is None
+
+    @tree.command(name="gclockdown", description="Lock GC membership (re-adds removed users)")
+    @user_installable
+    @app_commands.describe(state="on or off")
+    async def _gclockdown(interaction, state: Literal["on", "off"]):
+        if _need_gc():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        cid = str(getattr(interaction, "channel_id", "") or "")
+        await _rpc_reply(interaction, await _gc_cog.set_lockdown(cid, state == "on"))
+
+    @tree.command(name="gcantiadd", description="Kick anyone added to the GC")
+    @user_installable
+    @app_commands.describe(state="on or off")
+    async def _gcantiadd(interaction, state: Literal["on", "off"]):
+        if _need_gc():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        cid = str(getattr(interaction, "channel_id", "") or "")
+        await _rpc_reply(interaction, await _gc_cog.set_antiadd(cid, state == "on"))
+
+    @tree.command(name="gcwhitelist", description="Whitelist a user from GC protection")
+    @user_installable
+    @app_commands.describe(user="User id")
+    async def _gcwhitelist(interaction, user: str):
+        if _need_gc():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        cid = str(getattr(interaction, "channel_id", "") or "")
+        await _rpc_reply(interaction, _gc_cog.wl_add(cid, user))
+
+    @tree.command(name="gcunwhitelist", description="Remove a user from the GC whitelist")
+    @user_installable
+    @app_commands.describe(user="User id")
+    async def _gcunwhitelist(interaction, user: str):
+        if _need_gc():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        cid = str(getattr(interaction, "channel_id", "") or "")
+        await _rpc_reply(interaction, _gc_cog.wl_remove(cid, user))
+
     @client.event
     async def on_ready():
 
@@ -1231,7 +1284,12 @@ def _upsert_account(token: str, stats: dict, make_active: bool = True) -> dict:
     return rec
 
 async def _teardown_bot() -> None:
-    global _bot, _bot_task, _rpc_cog, _spotify_cog, _logger_cog, _profile_cog, _antigc_cog, _friends_cog
+    global _bot, _bot_task, _rpc_cog, _spotify_cog, _logger_cog, _profile_cog, _antigc_cog, _friends_cog, _gc_cog
+    if _gc_cog is not None:
+        try:
+            _gc_cog.stop()
+        except Exception:
+            pass
     if _bot_task is not None:
         try:
             _bot_task.cancel()
@@ -1250,6 +1308,7 @@ async def _teardown_bot() -> None:
     _profile_cog = None
     _antigc_cog = None
     _friends_cog = None
+    _gc_cog = None
 
 async def _switch_to_token(token: str) -> None:
     """Tear down the current account and log in with another (one active at a time)."""
@@ -1279,7 +1338,7 @@ async def _account_remove(aid: str) -> None:
 
 async def handle(cmd: dict, state: dict):
     global _bot, _bot_task, _rpc_cog, _realbot_task, OWNER_ID, _bot_app_id, _userapp_watch_task, _spotify_cog
-    global _logger_cog, _profile_cog, _antigc_cog, _friends_cog, _ACTIVE_ID
+    global _logger_cog, _profile_cog, _antigc_cog, _friends_cog, _gc_cog, _ACTIVE_ID
     c = cmd.get("cmd")
 
     if c == "login":
@@ -1353,6 +1412,15 @@ async def handle(cmd: dict, state: dict):
                 except Exception as e:
                     _friends_cog = None
                     log(f"friends cog failed to load: {e}\n" + traceback.format_exc())
+
+                try:
+                    import gc_cog
+                    _gc_cog = gc_cog.GCSecurity(_bot)
+                    _bot.add_cog(_gc_cog)
+                    log("GC security cog loaded")
+                except Exception as e:
+                    _gc_cog = None
+                    log(f"gc cog failed to load: {e}\n" + traceback.format_exc())
             stats = await build_stats(_bot)
         except Exception as e:
             emit({"type": "login_error", "msg": str(e)})

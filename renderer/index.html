@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- ===== title bar ===== -->
+
   <header class="titlebar">
     <div class="tb-left">
       <div class="tb-logo">B</div>
@@ -21,7 +21,6 @@
     </div>
   </header>
 
-  <!-- ===== login ===== -->
   <div id="login" class="login">
     <div class="login-glow"></div>
     <div class="login-card">
@@ -51,7 +50,6 @@
     </div>
   </div>
 
-  <!-- ===== app ===== -->
   <div id="app" class="app hidden">
     <nav class="rail">
       <button class="rail-btn active" data-tab="dashboard" title="Dashboard"><svg viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z"/></svg></button>
@@ -67,7 +65,7 @@
     </nav>
 
     <main class="content">
-      <!-- ===================== DASHBOARD ===================== -->
+
       <section class="page dashboard" data-page="dashboard">
         <div class="col-left">
           <h2 class="greeting">Hello, <span id="greetName" class="grad">…</span></h2>
@@ -162,7 +160,6 @@
         </aside>
       </section>
 
-      <!-- ===================== RPC ===================== -->
       <section class="page hidden" data-page="rpc">
         <h2 class="page-title">Rich Presence</h2>
         <div class="rpc-grid">
@@ -274,14 +271,12 @@
         </div>
       </section>
 
-      <!-- ===================== COMMANDS ===================== -->
       <section class="page hidden" data-page="commands">
         <h2 class="page-title">Commands</h2>
         <div class="cmd-note">Every command works on both bots — type <code>.</code> for the selfbot (your account) or <code>/</code> for the slash bot. With <b>Private Mode</b> on, <code>/</code> replies are ephemeral.</div>
         <div class="cmd-grid" id="cmdGrid"></div>
       </section>
 
-      <!-- ===================== CONFIG ===================== -->
       <section class="page hidden" data-page="config">
         <h2 class="page-title">Config</h2>
         <section class="card cfg-card">
@@ -296,7 +291,6 @@
         </section>
       </section>
 
-      <!-- ===================== SPOTIFY LYRICS ===================== -->
       <section class="page hidden" data-page="spotify">
         <div class="sp-titlebar">
           <h2 class="page-title" style="margin:0">Spotify Lyrics</h2>
@@ -334,7 +328,6 @@
         </div>
       </section>
 
-      <!-- ===================== MESSAGE LOGGER ===================== -->
       <section class="page hidden" data-page="logger">
         <div class="sp-titlebar">
           <h2 class="page-title" style="margin:0">Message Logger</h2>
@@ -400,7 +393,6 @@
         </div>
       </section>
 
-      <!-- ===================== PROFILE ===================== -->
       <section class="page hidden" data-page="profile">
         <h2 class="page-title">Profile</h2>
         <div class="prof-wrap">
@@ -444,7 +436,6 @@
         </div>
       </section>
 
-      <!-- ===================== HISTORY ===================== -->
       <section class="page hidden" data-page="history">
         <h2 class="page-title">History</h2>
         <section class="card admin-conn">
@@ -491,7 +482,6 @@
         <div id="admResults" class="admin-results"></div>
       </section>
 
-      <!-- ===================== ACCOUNT ===================== -->
       <section class="page hidden" data-page="account">
         <h2 class="page-title">Account</h2>
         <section class="card acc-card">

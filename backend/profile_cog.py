@@ -25,9 +25,7 @@ from modifyself.commands.cog import Cog
 from modifyself.commands.core import command
 from modifyself.http.route import Route
 
-# set by beyond_backend so the cog can push profile state to the Electron UI
 EMIT = None
-
 
 def _emit(obj: dict) -> None:
     if EMIT:
@@ -35,7 +33,6 @@ def _emit(obj: dict) -> None:
             EMIT(obj)
         except Exception:
             pass
-
 
 def _parse_accent(value) -> Optional[int]:
     """Accept '#5b8cff', '5b8cff', '0x5b8cff', or an int -> Discord int colour."""
@@ -54,14 +51,13 @@ def _parse_accent(value) -> Optional[int]:
         except Exception:
             return None
 
-
 async def _url_to_data_uri(url: str) -> Optional[str]:
     """Download an image URL and return a base64 data URI Discord accepts."""
     url = (url or "").strip()
     if not url:
         return None
     if url.startswith("data:"):
-        return url  # already a data URI
+        return url
 
     loop = asyncio.get_event_loop()
 
@@ -74,20 +70,18 @@ async def _url_to_data_uri(url: str) -> Optional[str]:
     if not data:
         return None
     if not ct or not ct.startswith("image"):
-        # infer from extension when the server doesn't say
+
         ext = url.split("?")[0].rsplit(".", 1)[-1].lower()
         ct = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
               "gif": "image/gif", "webp": "image/webp"}.get(ext, "image/png")
     b64 = base64.b64encode(data).decode()
     return f"data:{ct};base64,{b64}"
 
-
 class Profile(Cog):
 
     def __init__(self, bot):
         super().__init__(bot)
 
-    # ── read ─────────────────────────────────────────────────────────────
     async def _fetch_me(self) -> dict:
         try:
             return await self.bot._http.request(Route.me()) or {}
@@ -129,7 +123,6 @@ class Profile(Cog):
             },
         }
 
-    # ── write ────────────────────────────────────────────────────────────
     async def apply(self, fields: dict) -> dict:
         """Apply any subset of {display_name, avatar, banner, accent, bio, pronouns}.
 
@@ -140,7 +133,6 @@ class Profile(Cog):
         if not isinstance(fields, dict):
             return {"changed": changed, "errors": ["bad payload"]}
 
-        # --- /users/@me fields (display name, avatar, banner, accent) ---
         me_patch: dict = {}
         if "display_name" in fields:
             me_patch["global_name"] = str(fields["display_name"])[:32]
@@ -154,7 +146,7 @@ class Profile(Cog):
             if key in fields:
                 raw = fields[key]
                 if raw in (None, "", "remove", "clear"):
-                    me_patch[api_key] = None  # clears it
+                    me_patch[api_key] = None
                 else:
                     try:
                         uri = await _url_to_data_uri(str(raw))
@@ -176,7 +168,6 @@ class Profile(Cog):
             except Exception as e:
                 errors.append(f"account update failed: {e}")
 
-        # --- /users/@me/profile fields (bio, pronouns) ---
         prof_patch: dict = {}
         if "bio" in fields:
             prof_patch["bio"] = str(fields["bio"])[:190]
@@ -194,7 +185,6 @@ class Profile(Cog):
 
         return {"changed": changed, "errors": errors}
 
-    # ── selfbot commands ─────────────────────────────────────────────────
     async def _reply(self, ctx, text):
         _emit({"type": "command"})
         try:
@@ -255,7 +245,6 @@ class Profile(Cog):
             f"**Accent** {p['accent_hex'] or '—'}\n"
             "-# `.setpfp` · `.setbanner` · `.setbio` · `.setpronouns` · `.setdisplayname` · `.setaccent`"
         )
-
 
 def setup(bot):
     bot.add_cog(Profile(bot))

@@ -1,7 +1,4 @@
-// Beyond — Electron main process = WINDOW + UI SHELL ONLY.
-// It does NOT talk to Discord. It spawns the Python/modifyself backend
-// (backend/beyond_backend.py) and just relays messages between the renderer
-// and that Python process over stdin/stdout (newline-delimited JSON).
+
 
 const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const path = require("path");
@@ -18,7 +15,6 @@ function saveConfig(cfg) { try { fs.writeFileSync(CONFIG_PATH, JSON.stringify(cf
 
 function send(evt) { if (win && !win.isDestroyed()) win.webContents.send("backend", evt); }
 
-// ---- Python backend --------------------------------------------------------
 function toBackend(obj) {
   if (!backend || !backend.stdin.writable) return false;
   try { backend.stdin.write(JSON.stringify(obj) + "\n"); return true; } catch (_) { return false; }
@@ -57,7 +53,6 @@ function startBackend() {
 
 function stopBackend() { if (backend) { try { backend.kill(); } catch (_) {} backend = null; } }
 
-// ---- IPC (renderer -> main -> python) --------------------------------------
 ipcMain.on("login", (_e, { token, remember }) => {
   const cfg = loadConfig();
   if (remember) cfg.token = token; else delete cfg.token;
@@ -86,7 +81,6 @@ ipcMain.on("win", (_e, action) => {
 });
 ipcMain.on("open-external", (_e, url) => shell.openExternal(url));
 
-// ---- Admin API bridge (main-process fetch: no CORS, key stays out of renderer) ----
 ipcMain.handle("admin-request", async (_e, { baseUrl, key, path, query }) => {
   try {
     if (!baseUrl || !key) return { ok: false, status: 0, error: "Set the Base URL and Admin key first." };
@@ -102,7 +96,6 @@ ipcMain.handle("admin-request", async (_e, { baseUrl, key, path, query }) => {
   }
 });
 
-// ---- window ----------------------------------------------------------------
 function createWindow() {
   const iconPath = path.join(
     __dirname, "assets",

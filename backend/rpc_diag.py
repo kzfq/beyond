@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """Diagnose whether the installed modifyself has everything the RPC image
 upload needs. Run:  python backend\\rpc_diag.py"""
 import sys
@@ -17,16 +17,14 @@ except Exception as e:
 
 ok = True
 
-# wreq (the HTTP client the upload uses)
 try:
     import wreq
-    from wreq import Method  # noqa: F401
+    from wreq import Method
     print("wreq:               OK")
 except Exception as e:
     ok = False
     print("wreq:               MISSING ->", repr(e))
 
-# inspect a Client's http + spoofer without connecting
 try:
     from modifyself import Client
     c = Client(token="diagnostic", command_prefix=".", notifications=False)

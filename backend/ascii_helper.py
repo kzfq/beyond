@@ -6,7 +6,6 @@ reproduces that behavior using modifyself's Context (ctx.reply / ctx.send).
 """
 import asyncio
 
-
 async def _reply_and_expire(ctx, text, delay):
     m = None
     try:
@@ -27,7 +26,6 @@ async def _reply_and_expire(ctx, text, delay):
             pass
     asyncio.create_task(_rm())
 
-
 class ASCIIMixin:
     async def aprint(self, ctx, title, lines, delay=10):
         body = "\n".join(str(x) for x in (lines or []))
@@ -38,7 +36,6 @@ class ASCIIMixin:
 
     async def aerror(self, ctx, msg, delay=8):
         await _reply_and_expire(ctx, f"`error` {msg}", delay)
-
 
 async def asend(ctx, text, delay=8):
     await _reply_and_expire(ctx, str(text), delay)

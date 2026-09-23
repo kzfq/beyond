@@ -1,4 +1,4 @@
-/* ===== Beyond — theme ===== */
+
 :root {
   --bg0: #070b14;
   --bg1: #0b1120;
@@ -41,7 +41,6 @@ body {
 
 .hidden { display: none !important; }
 
-/* ===== title bar ===== */
 .titlebar {
   height: 44px;
   display: flex;
@@ -70,7 +69,6 @@ body {
 .tb-btn:hover { background: rgba(255, 255, 255, 0.07); color: var(--txt); }
 .tb-close:hover { background: var(--err); color: #fff; }
 
-/* ===== login ===== */
 .login {
   position: fixed; inset: 44px 0 0 0; z-index: 40;
   display: grid; place-items: center;
@@ -114,7 +112,6 @@ body {
 .login-error { color: var(--err); font-size: 13px; min-height: 18px; margin-top: 10px; text-align: center; }
 .login-note { color: var(--faint); font-size: 11px; line-height: 1.5; margin-top: 14px; text-align: center; }
 
-/* buttons */
 .primary, .soft, .wide {
   border: 0; cursor: pointer; font-family: inherit; font-weight: 600; font-size: 13px;
   border-radius: 11px; padding: 11px 16px; transition: 0.16s; color: #fff;
@@ -125,7 +122,6 @@ body {
 .soft:hover { background: rgba(255,255,255,0.1); }
 .wide { width: 100%; padding: 13px; font-size: 14px; }
 
-/* ===== app shell ===== */
 .app { display: flex; height: calc(100vh - 44px); }
 .rail {
   width: 62px; display: flex; flex-direction: column; align-items: center; gap: 8px;
@@ -150,7 +146,6 @@ body {
 .wave { display: inline-block; animation: wave 2.4s ease-in-out infinite; transform-origin: 70% 70%; }
 @keyframes wave { 0%,60%,100%{transform:rotate(0)} 10%{transform:rotate(14deg)} 20%{transform:rotate(-8deg)} 30%{transform:rotate(14deg)} 40%{transform:rotate(-4deg)} }
 
-/* cards */
 .card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -159,7 +154,6 @@ body {
   box-shadow: 0 12px 40px rgba(0,0,0,0.28);
 }
 
-/* account card */
 .account { padding: 22px; }
 .acct-top { display: flex; align-items: center; gap: 18px; }
 .avatar-wrap { position: relative; }
@@ -186,7 +180,6 @@ body {
 .stat-mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 15px; margin-top: 4px; color: var(--txt); user-select: text; }
 .stat-value { font-size: 15px; margin-top: 4px; }
 
-/* rings */
 .rings { display: flex; gap: 20px; }
 .ring { position: relative; width: 116px; text-align: center; }
 .ring svg { width: 116px; height: 116px; transform: rotate(-90deg); }
@@ -199,7 +192,6 @@ body {
 .ring-center small { color: var(--faint); font-size: 11px; }
 .ring-cap { color: var(--muted); font-size: 11px; letter-spacing: 1px; margin-top: -6px; font-weight: 600; }
 
-/* meta card */
 .meta { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
 .meta-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .chip {
@@ -228,7 +220,6 @@ body {
 .uptime-grid b { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .uptime-grid small { display: block; color: var(--faint); font-size: 10px; margin-top: 2px; letter-spacing: 1px; }
 
-/* notification center */
 .notif { display: flex; flex-direction: column; min-height: 0; }
 .notif-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 18px 12px; border-bottom: 1px solid var(--border); }
 .notif-title { font-weight: 700; font-size: 15px; }
@@ -249,7 +240,6 @@ body {
 .n-meta { color: var(--faint); font-size: 11px; margin-top: 8px; }
 .notif-empty { color: var(--faint); text-align: center; padding: 40px 10px; font-size: 13px; }
 
-/* bot connect card */
 .botcard { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
 .bot-head { display: flex; align-items: center; justify-content: space-between; }
 .bot-title { font-size: 14px; font-weight: 600; }
@@ -267,7 +257,6 @@ body {
 .bot-status a { color: var(--accent); cursor: pointer; text-decoration: none; }
 .bot-status a:hover { text-decoration: underline; }
 
-/* inline svg icon sizing */
 .chip-ico { display: inline-flex; }
 .chip-ico svg { width: 15px; height: 15px; }
 .notif-title { display: flex; align-items: center; gap: 9px; }
@@ -276,7 +265,6 @@ body {
 .n-ico svg { width: 19px; height: 19px; }
 .uptime-cap .chip-ico svg { width: 15px; height: 15px; }
 
-/* ===== RPC page ===== */
 .rpc-grid { display: grid; grid-template-columns: 1.3fr 0.9fr; gap: 18px; align-items: start; }
 .rpc-editor { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
 .rpc-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
@@ -290,7 +278,6 @@ body {
 .rpc-preview-wrap, .rpc-status-card { padding: 16px 18px; }
 .rpc-preview-cap { font-size: 11px; color: var(--faint); letter-spacing: 1px; font-weight: 600; margin-bottom: 12px; }
 
-/* discord-style activity card */
 .rpc-card { background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
   border: 1px solid var(--border-2); border-radius: 14px; padding: 16px; }
 .rpc-kind { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; }
@@ -308,7 +295,6 @@ body {
   border: 1px solid var(--border-2); font-size: 13px; font-weight: 600; color: var(--txt); cursor: pointer; transition: 0.15s; }
 .pvbtn:hover { background: rgba(87,169,255,0.16); border-color: var(--accent); }
 
-/* click-to-edit affordances on the preview card */
 .cap-hint { color: var(--faint); font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 11px; }
 .pv-edit { outline: none; border-radius: 5px; cursor: text; transition: box-shadow 0.15s, background 0.15s; padding: 0 3px; margin: 0 -3px; }
 .pv-edit:hover { background: rgba(255,255,255,0.05); }
@@ -334,7 +320,6 @@ body {
 .sd.dnd { background: #e5544b; } .sd.invisible { background: #8b95ab; }
 .rpc-active-note { margin-top: 12px; font-size: 12px; color: var(--faint); }
 
-/* ===== Commands page ===== */
 .cmd-note { color: var(--muted); font-size: 13px; margin-bottom: 16px; line-height: 1.6; }
 .cmd-note code, .cfg-row code, .cmd-usage code { background: rgba(255,255,255,0.08); padding: 1px 6px; border-radius: 5px; font-size: 12px; }
 .cmd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
@@ -345,7 +330,6 @@ body {
 .cmd-desc { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
 .cmd-usage code { color: var(--txt); }
 
-/* ===== Config / Account pages ===== */
 .cfg-card { padding: 8px 20px; }
 .cfg-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); }
 .cfg-row:last-child { border-bottom: 0; }
@@ -359,7 +343,6 @@ body {
   .rpc-grid { grid-template-columns: 1fr; }
 }
 
-/* ===== Admin / Data tab ===== */
 .admin-conn, .admin-query { padding: 18px 20px; margin-bottom: 16px; }
 .admin-actions { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
 .admin-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
@@ -379,7 +362,6 @@ body {
 .adm-null { color: var(--faint); }
 .adm-err { color: var(--err); font-weight: 600; }
 
-/* history item cards (messages / profile / reactions / voice / guild) */
 .hist-item { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
 .hist-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
 .hist-head b { font-size: 13.5px; }
@@ -400,7 +382,6 @@ body {
 .adm-pre { background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 10px; padding: 14px; overflow: auto; font-size: 12px; user-select: text; }
 #admConnDot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
 
-/* ===== Spotify Lyrics tab ===== */
 .sp-titlebar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .sp-switch { transform: scale(1.15); }
 .sp-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
@@ -420,7 +401,6 @@ body {
 .sp-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #1db954, #4be089); border-radius: 6px; transition: width 0.2s linear; }
 .sp-source { color: var(--faint); font-size: 11px; margin-top: 10px; }
 
-/* equalizer overlay on the cover */
 .sp-eq { position: absolute; left: 8px; bottom: 8px; display: flex; align-items: flex-end; gap: 3px; height: 24px;
   padding: 4px 6px; border-radius: 8px; background: rgba(0,0,0,0.45); backdrop-filter: blur(4px); }
 .sp-eq span { width: 3px; height: 5px; background: #1db954; border-radius: 2px; transition: height 0.09s ease-out; }
@@ -440,7 +420,6 @@ body {
 
 @media (max-width: 1040px) { .sp-wrap { grid-template-columns: 1fr; } }
 
-/* scrollbars */
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.09); border-radius: 8px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
@@ -449,7 +428,6 @@ body {
   .content { grid-template-columns: 1fr; }
 }
 
-/* ===================== Message Logger ===================== */
 .log-wrap { display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 18px; align-items: start; }
 .log-config { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
 .log-cap { font-size: 11px; color: var(--faint); letter-spacing: 1px; font-weight: 600; text-transform: uppercase; }
@@ -506,7 +484,6 @@ body {
 
 @media (max-width: 1040px) { .log-wrap { grid-template-columns: 1fr; } }
 
-/* ===================== Profile ===================== */
 .prof-wrap { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 18px; align-items: start; }
 .prof-editor { padding: 22px; display: flex; flex-direction: column; gap: 14px; }
 .prof-bio { resize: vertical; min-height: 84px; font-family: inherit; line-height: 1.4; }

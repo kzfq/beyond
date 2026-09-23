@@ -17,13 +17,10 @@ from ascii_helper import ASCIIMixin
 
 _SPOTIFY_API  = "https://api.spotify.com/v1"
 _LRCLIB       = "https://lrclib.net/api/get"
-_TOKEN_TTL    = 50 * 60   # refresh every 50 min
-_SYNC_EVERY   = 30.0      # re-poll Spotify every 30s to correct drift
+_TOKEN_TTL    = 50 * 60
+_SYNC_EVERY   = 30.0
 
-# Beyond hook: beyond_backend sets EMIT = its emit() so this cog can stream
-# now-playing + lyric state to the UI. No-op when running as a plain selfbot.
 EMIT = None
-
 
 def _emit(obj: dict) -> None:
     if EMIT is not None:
@@ -31,9 +28,6 @@ def _emit(obj: dict) -> None:
             EMIT(obj)
         except Exception:
             pass
-
-
-# ── blocking helpers ──────────────────────────────────────────────────────────
 
 def _fetch_synced(title: str, artist: str, album: str, duration_s: int) -> list[tuple[int, str]]:
     params = urllib.parse.urlencode({
@@ -57,7 +51,6 @@ def _fetch_synced(title: str, artist: str, album: str, duration_s: int) -> list[
         print(f"[sl] lrclib error: {e}")
         return []
 
-
 def _spotify_get(token: str, path: str) -> Optional[dict]:
     try:
         req = _ur.Request(f"{_SPOTIFY_API}{path}", headers={"Authorization": f"Bearer {token}"})
@@ -69,9 +62,6 @@ def _spotify_get(token: str, path: str) -> Optional[dict]:
         print(f"[sl] spotify_get error: {e}")
         return None
 
-
-# ── cog ───────────────────────────────────────────────────────────────────────
-
 class SpotifyLyrics(Cog, ASCIIMixin):
 
     def __init__(self, bot):
@@ -81,8 +71,6 @@ class SpotifyLyrics(Cog, ASCIIMixin):
         self._lyrics: list[tuple[int, str]] = []
         self._last_line = ""
         self._enabled = False
-
-    # ── listeners ─────────────────────────────────────────────────────────
 
     @listener()
     async def on_sessions_replace(self, data):
@@ -108,8 +96,6 @@ class SpotifyLyrics(Cog, ASCIIMixin):
             None,
         )
         self._discord_activity = act
-
-    # ── Discord → Spotify token ───────────────────────────────────────────
 
     async def _get_token(self) -> Optional[str]:
         import traceback
@@ -144,10 +130,6 @@ class SpotifyLyrics(Cog, ASCIIMixin):
             print(f"[sl] _get_token error: {e}")
             traceback.print_exc()
             return None
-
-    # ── status ────────────────────────────────────────────────────────────
-    # 1:1 with the reference cog — PATCH /users/@me/settings custom_status.
-    # (Adds a visible notif on failure so silent HTTP errors surface in the UI.)
 
     async def _set_status(self, text: str):
         import json as _json, traceback
@@ -187,8 +169,6 @@ class SpotifyLyrics(Cog, ASCIIMixin):
             traceback.print_exc()
             _emit({"type": "notif", "kind": "err", "msg": f"Status update error: {e}"})
 
-    # ── UI helpers ────────────────────────────────────────────────────────
-
     def _emit_np(self, *, source, title, artist, album, cover, duration_ms,
                  anchor_pos_ms, anchor_wall):
         _emit({
@@ -200,8 +180,6 @@ class SpotifyLyrics(Cog, ASCIIMixin):
             "hasLyrics": bool(self._lyrics),
             "lyrics": [[ms, txt] for ms, txt in self._lyrics],
         })
-
-    # ── sync loop ─────────────────────────────────────────────────────────
 
     async def _sync_loop(self):
         loop = asyncio.get_event_loop()
@@ -362,8 +340,6 @@ class SpotifyLyrics(Cog, ASCIIMixin):
 
             await asyncio.sleep(sleep_s)
 
-    # ── control (called by beyond_backend + the .spotifylyrics command) ───
-
     def start(self):
         if self._enabled and self._task and not self._task.done():
             return False
@@ -381,8 +357,6 @@ class SpotifyLyrics(Cog, ASCIIMixin):
         _emit({"type": "spotify_np", "playing": False})
         asyncio.ensure_future(self._set_status(""))
 
-    # ── command ───────────────────────────────────────────────────────────
-
     @command()
     async def spotifylyrics(self, ctx):
         rest = " ".join(ctx.message.content.split()[1:]).strip().lower()
@@ -398,7 +372,6 @@ class SpotifyLyrics(Cog, ASCIIMixin):
 
         self.start()
         await self.aprint(ctx, "Spotify Lyrics", ["syncing to custom status"], delay=8)
-
 
 def setup(bot):
     bot.add_cog(SpotifyLyrics(bot))

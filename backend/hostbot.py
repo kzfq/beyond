@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Beyond — standalone slash-bot host.
 
@@ -50,10 +50,8 @@ BANNER = [
     "██████  ███████    ██     ██████  ██   ████ ██████",
 ]
 
-
 def help_text() -> str:
     return "```\n" + "\n".join(BANNER) + "\n\n  commands:  help   ping   stats\n```"
-
 
 def prompt(label: str, secret: bool = False) -> str:
     if secret:
@@ -63,7 +61,6 @@ def prompt(label: str, secret: bool = False) -> str:
         except Exception:
             pass
     return input(label).strip()
-
 
 def main():
     print("=" * 52)
@@ -138,7 +135,6 @@ def main():
         print("Get it from Developer Portal -> Bot -> Reset Token (NOT the App ID).")
     except KeyboardInterrupt:
         print("\nStopped.")
-
 
 if __name__ == "__main__":
     main()

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Beyond backend — hosts BOTH:
   - the selfbot  (modifyself, your account)   -> "." prefix commands + RPC cog
@@ -22,9 +22,6 @@ import os
 import sys
 import traceback
 
-# Windows consoles default to cp1252, which can't encode characters like → or ♪
-# that the cogs print — an unencodable print() raises UnicodeEncodeError and can
-# kill a background task (e.g. the Spotify lyrics loop). Force UTF-8 everywhere.
 for _stream in (sys.stdout, sys.stderr):
     try:
         _stream.reconfigure(encoding="utf-8", errors="replace")
@@ -37,7 +34,7 @@ ACCENT = 0x5B8CFF
 
 CFG = {"private": False, "discoverable": True}
 LAST_STATS = {}
-OWNER_ID = None  # the logged-in account's user id — only they may use "/" commands
+OWNER_ID = None
 BADGE_BITS = [1 << 0, 1 << 1, 1 << 2, 1 << 6, 1 << 7, 1 << 8, 1 << 9,
               1 << 3, 1 << 14, 1 << 17, 1 << 18, 1 << 22]
 
@@ -45,31 +42,25 @@ RPC_TYPES = ["playing", "listening", "watching", "streaming", "competing",
              "spotify", "youtube", "xbox", "playstation", "crunchyroll",
              "vrchat", "custom", "custom_status"]
 
-_bot = None            # modifyself selfbot
+_bot = None
 _bot_task = None
-_rpc_cog = None        # rpc_cog.RPC instance
-_realbot = None        # discord.py real bot
+_rpc_cog = None
+_realbot = None
 _realbot_task = None
-_bot_app_id = None     # the connected slash-bot's application id
+_bot_app_id = None
 _userapp_watch_task = None
-_spotify_cog = None    # spotify_cog.SpotifyLyrics instance
-_logger_cog = None     # logger_cog.MessageLogger instance
-_profile_cog = None    # profile_cog.Profile instance
-_DISCOVER_RPC_KEY = "beyond_promo"   # _active key for the discoverable promo RPC
-
+_spotify_cog = None
+_logger_cog = None
+_profile_cog = None
+_DISCOVER_RPC_KEY = "beyond_promo"
 
 def emit(obj: dict) -> None:
     sys.stdout.write(json.dumps(obj) + "\n")
     sys.stdout.flush()
 
-
 def log(msg: str) -> None:
     emit({"type": "log", "msg": str(msg)})
 
-
-# --------------------------------------------------------------------------
-# shared command text (compact markdown — no giant ascii)
-# --------------------------------------------------------------------------
 def help_lines():
     return [
         ("Core", "`help` · `ping` · `stats`"),
@@ -77,17 +68,14 @@ def help_lines():
         ("RPC extras", "`rpc preset` · `rpc rotation` · `rpc stack` · `multiplatform`"),
     ]
 
-
 def help_text() -> str:
     out = ["## ⬜ Beyond", "-# selfbot + slash · v0.1.0"]
     for title, body in help_lines():
         out.append(f"**{title}**\n{body}")
     return "\n".join(out)
 
-
 def ping_text(latency_s) -> str:
     return f"Pong — **{round((latency_s or 0) * 1000)}ms**"
-
 
 def _presence_line() -> str:
     try:
@@ -99,7 +87,6 @@ def _presence_line() -> str:
     if act:
         line += f" · **RPC** {', '.join(act)}"
     return line
-
 
 def stats_text() -> str:
     s = LAST_STATS
@@ -116,14 +103,9 @@ def stats_text() -> str:
         f"{_presence_line()}"
     )
 
-
-# --------------------------------------------------------------------------
-# REST via modifyself
-# --------------------------------------------------------------------------
 async def _api(bot, path: str):
     from modifyself.http.route import Route
     return await bot._http.request(Route("GET", path))
-
 
 def _created_date(uid: str) -> str:
     try:
@@ -133,13 +115,11 @@ def _created_date(uid: str) -> str:
     except Exception:
         return "?"
 
-
 def _avatar_url(u: dict) -> str:
     if u.get("avatar"):
         ext = "gif" if u["avatar"].startswith("a_") else "png"
         return f"https://cdn.discordapp.com/avatars/{u['id']}/{u['avatar']}.{ext}?size=256"
     return f"https://cdn.discordapp.com/embed/avatars/{(int(u['id']) >> 22) % 6}.png"
-
 
 async def ensure_asset_channel(bot):
     """Make sure the RPC cog has a channel it can actually post images to.
@@ -154,13 +134,13 @@ async def ensure_asset_channel(bot):
         return None
     cur = persistence.get("rpc_asset_channel")
     if cur and cur != "1477758738772525239":
-        return cur  # already configured
+        return cur
     try:
         guilds = await _api(bot, "/users/@me/guilds") or []
     except Exception as e:
         log(f"asset channel: guild fetch failed: {e}")
         return None
-    # owned guilds first (owner can post anywhere), then the rest as best effort
+
     ordered = [g for g in guilds if g.get("owner")] + [g for g in guilds if not g.get("owner")]
     for g in ordered:
         try:
@@ -168,7 +148,7 @@ async def ensure_asset_channel(bot):
         except Exception:
             continue
         for ch in chans:
-            if ch.get("type") == 0:  # standard text channel
+            if ch.get("type") == 0:
                 cid = str(ch["id"])
                 persistence.set_key("rpc_asset_channel", cid)
                 log(f"asset channel -> #{ch.get('name')} ({cid}) in "
@@ -176,7 +156,6 @@ async def ensure_asset_channel(bot):
                 return cid
     log("asset channel: no postable channel found — set one in the RPC tab")
     return None
-
 
 async def build_stats(bot) -> dict:
     u = await _api(bot, "/users/@me")
@@ -210,17 +189,13 @@ async def build_stats(bot) -> dict:
     LAST_STATS.clear(); LAST_STATS.update(stats)
     return stats
 
-
-# --------------------------------------------------------------------------
-# UI activity dict -> the RPC cog's cmd schema
-# --------------------------------------------------------------------------
 def ui_to_cmd(ui: dict) -> dict:
     c = dict(ui)
     li = ui.get("large_image")
     if li:
         c["image"] = li
         c["imglink"] = li
-    # small_image is read directly by the cog's small_img()
+
     b, bu = [], []
     if ui.get("button1") and ui.get("button1_url"):
         b.append(ui["button1"]); bu.append(ui["button1_url"])
@@ -231,10 +206,6 @@ def ui_to_cmd(ui: dict) -> dict:
         c["button_urls"] = bu
     return c
 
-
-# --------------------------------------------------------------------------
-# selfbot (modifyself) — "." help/ping/stats (RPC commands come from the cog)
-# --------------------------------------------------------------------------
 async def _respond(ctx, text):
     emit({"type": "command"})
     try:
@@ -255,7 +226,6 @@ async def _respond(ctx, text):
                 pass
         asyncio.create_task(_cleanup())
 
-
 def register_commands(bot):
     @bot.command(name="help", aliases=["cmds", "commands"])
     async def _help(ctx):
@@ -268,7 +238,6 @@ def register_commands(bot):
     @bot.command(name="stats")
     async def _stats(ctx):
         await _respond(ctx, stats_text())
-
 
 async def run_selfbot(bot):
     register_commands(bot)
@@ -319,10 +288,6 @@ async def run_selfbot(bot):
         emit({"type": "notif", "kind": "err", "msg": f"Gateway error: {e}"})
         log("gateway traceback:\n" + traceback.format_exc())
 
-
-# --------------------------------------------------------------------------
-# real bot (discord.py) — "/" slash commands, Components V2
-# --------------------------------------------------------------------------
 def build_v2_view(discord, kind: str):
     ui = discord.ui
     try:
@@ -366,7 +331,6 @@ def build_v2_view(discord, kind: str):
         log(f"v2 view build failed ({kind}): {e}")
         return None
 
-
 async def start_realbot(token: str, app_id: str, guild_id: str = ""):
     global _realbot
     try:
@@ -382,8 +346,6 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
     tree = app_commands.CommandTree(client)
     _realbot = client
 
-    # OWNER-ONLY: only the account hosting Beyond may use "/" commands. Everyone
-    # else gets an ephemeral "under works" notice and the command is blocked.
     async def _owner_only(interaction):
         if OWNER_ID is not None and interaction.user.id == OWNER_ID:
             return True
@@ -399,7 +361,7 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
     @tree.error
     async def _tree_error(interaction, error):
         if isinstance(error, app_commands.CheckFailure):
-            return  # blocked by _owner_only, already answered
+            return
         log(f"slash command error: {error}")
         try:
             if not interaction.response.is_done():
@@ -446,7 +408,6 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
     async def _stats(interaction):
         await _reply_v2(interaction, "stats", stats_text())
 
-    # ---- presence commands (drive the hosted selfbot's account presence) ----
     from typing import Literal, Optional as _Opt
 
     async def _rpc_reply(interaction, text):
@@ -664,7 +625,7 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
                 _logger_cog.apply_config(patch)
                 emit(_logger_cog.state())
                 await _rpc_reply(interaction, f"Scope set to **{mode}**{f' ({value})' if value else ''}.")
-            else:  # status
+            else:
                 cfg = _logger_cog.cfg
                 kw = ", ".join(cfg["keywords"]) or "none"
                 await _rpc_reply(
@@ -708,20 +669,14 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
 
     @client.event
     async def on_ready():
-        # ALWAYS sync globally — that's what makes user-install commands work in
-        # DMs, group DMs, and every server that allows external apps. A Server ID
-        # (if given) is an ADDITIONAL instant-preview sync, never a replacement.
-        # Global sync ONLY — user-installed commands work in DMs and every server
-        # that allows external apps. (Do NOT also copy them into a guild: that
-        # makes each command appear twice — once global, once guild-scoped.)
+
         try:
             g = await tree.sync()
             emit({"type": "notif", "kind": "ok",
                   "msg": f"Slash commands synced globally ({len(g)}) — work in DMs & anywhere (up to ~1h to propagate)"})
         except Exception as e:
             emit({"type": "notif", "kind": "warn", "msg": f"Global slash sync failed: {e}"})
-        # If a Server ID was given, clear any guild-scoped copies so old duplicates
-        # from earlier builds disappear (leaving only the global commands).
+
         gid = (guild_id or "").strip()
         if gid:
             try:
@@ -741,11 +696,9 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
         emit({"type": "notif", "kind": "err", "msg": f"Bot login failed: {e}"})
         log("realbot traceback:\n" + traceback.format_exc())
 
-
 def invite_url(app_id: str) -> str:
     return (f"https://discord.com/oauth2/authorize?client_id={app_id}"
             f"&integration_type=1&scope=applications.commands")
-
 
 async def watch_userapp(app_id: str):
     """Poll the account's authorized apps and alert if the Beyond user-app is
@@ -775,10 +728,6 @@ async def watch_userapp(app_id: str):
             emit({"type": "botinvite", "invite": invite_url(app_id)})
         prev_present = present
 
-
-# --------------------------------------------------------------------------
-# discoverable → "Using Beyond Selfbot" VRChat promo presence
-# --------------------------------------------------------------------------
 def _promo_cmd() -> dict:
     """The VRChat-spoof presence applied while 'discoverable' is ON."""
     return {
@@ -790,7 +739,6 @@ def _promo_cmd() -> dict:
         "buttons": ["get it now"],
         "button_urls": ["https://github.com/kzfq/beyond"],
     }
-
 
 async def apply_discoverable(on: bool) -> None:
     """Turn the Beyond promo presence on/off through the RPC cog.
@@ -821,10 +769,6 @@ async def apply_discoverable(on: bool) -> None:
     except Exception as e:
         log(f"discoverable apply failed: {e}\n" + traceback.format_exc())
 
-
-# --------------------------------------------------------------------------
-# command loop
-# --------------------------------------------------------------------------
 async def handle(cmd: dict, state: dict):
     global _bot, _bot_task, _rpc_cog, _realbot_task, OWNER_ID, _bot_app_id, _userapp_watch_task, _spotify_cog
     global _logger_cog, _profile_cog
@@ -836,14 +780,14 @@ async def handle(cmd: dict, state: dict):
         try:
             import modifyself
             log(f"modifyself version: {getattr(modifyself, '__version__', 'unknown')}")
-            from modifyself import Client  # noqa: F401
+            from modifyself import Client
         except Exception:
             emit({"type": "login_error", "msg": "modifyself not installed — run: pip install modifyself"})
             return
         try:
             if _bot is None:
                 _bot = Client(token=token, command_prefix=PREFIX, notifications=False)
-                # load the full RPC engine as a cog
+
                 try:
                     import rpc_cog
                     _rpc_cog = rpc_cog.RPC(_bot)
@@ -853,7 +797,7 @@ async def handle(cmd: dict, state: dict):
                     _rpc_cog = None
                     emit({"type": "notif", "kind": "warn", "msg": f"RPC engine failed to load: {e}"})
                     log("rpc cog traceback:\n" + traceback.format_exc())
-                # load the Spotify-lyrics cog (streams now-playing + lyrics to the UI)
+
                 try:
                     import spotify_cog
                     spotify_cog.EMIT = emit
@@ -863,7 +807,7 @@ async def handle(cmd: dict, state: dict):
                 except Exception as e:
                     _spotify_cog = None
                     log(f"spotify cog failed to load: {e}\n" + traceback.format_exc())
-                # load the Message Logger cog (keyword/mention/delete/edit tracking)
+
                 try:
                     import logger_cog
                     logger_cog.EMIT = emit
@@ -873,7 +817,7 @@ async def handle(cmd: dict, state: dict):
                 except Exception as e:
                     _logger_cog = None
                     log(f"logger cog failed to load: {e}\n" + traceback.format_exc())
-                # load the Profile cog (avatar/banner/bio/pronouns/etc. commands)
+
                 try:
                     import profile_cog
                     profile_cog.EMIT = emit
@@ -890,17 +834,17 @@ async def handle(cmd: dict, state: dict):
             _bot = None
             return
         try:
-            OWNER_ID = int(stats["id"])  # lock "/" commands to this account
+            OWNER_ID = int(stats["id"])
         except Exception:
             OWNER_ID = None
         emit({"type": "ready", "data": stats})
-        # push the logger's saved config + any replayable feed to the UI
+
         if _logger_cog is not None:
             try:
                 emit(_logger_cog.state())
             except Exception:
                 pass
-        # push the account's current profile to the Profile tab
+
         if _profile_cog is not None:
             try:
                 emit(await _profile_cog.snapshot())
@@ -910,10 +854,7 @@ async def handle(cmd: dict, state: dict):
             _bot_task = asyncio.create_task(run_selfbot(_bot))
 
     elif c in ("refresh", "snapshot"):
-        # Electron calls this every 60s; the relay also calls it whenever a NEW
-        # web viewer connects. When already logged in, re-emit a full snapshot so
-        # a freshly-opened remote panel lands straight on the dashboard (the
-        # "ready" handler no-ops if the panel is already showing the app).
+
         if _bot is not None:
             try:
                 stats = await build_stats(_bot)
@@ -947,7 +888,7 @@ async def handle(cmd: dict, state: dict):
         rt = (ui.get("rpc_type") or "").lower()
         if status:
             _rpc_cog._status = status
-        # asset channel: explicit UI value wins; otherwise auto-pick an owned channel
+
         ac = (cmd.get("assetChannel") or "").strip()
         if ac:
             try:
@@ -1022,7 +963,7 @@ async def handle(cmd: dict, state: dict):
         CFG["private"] = bool(cmd.get("private", CFG["private"]))
         prev_disc = CFG["discoverable"]
         CFG["discoverable"] = bool(cmd.get("discoverable", CFG["discoverable"]))
-        # discoverable toggled -> apply/remove the "Using Beyond Selfbot" promo RPC
+
         if "discoverable" in cmd and CFG["discoverable"] != prev_disc:
             await apply_discoverable(CFG["discoverable"])
             emit({"type": "notif", "kind": "ok",
@@ -1031,9 +972,7 @@ async def handle(cmd: dict, state: dict):
         bt = (cmd.get("botToken") or "").strip()
         ba = (cmd.get("botAppId") or "").strip()
         bg = (cmd.get("botGuild") or "").strip()
-        # Only open the OAuth authorize page when the UI explicitly asks (the
-        # Connect button on a first-time add) — NOT on every auto-connect at
-        # startup. Once added, the app stays added; we just reconnect silently.
+
         if ba and cmd.get("openInvite"):
             emit({"type": "botinvite", "invite": invite_url(ba)})
         if ba:
@@ -1042,7 +981,7 @@ async def handle(cmd: dict, state: dict):
         if bt and ba and task_dead:
             emit({"type": "notif", "kind": "info", "msg": "Connecting real bot..."})
             _realbot_task = asyncio.create_task(start_realbot(bt, ba, bg))
-            # start watching for the user-app being removed (once)
+
             if _userapp_watch_task is None or _userapp_watch_task.done():
                 _userapp_watch_task = asyncio.create_task(watch_userapp(ba))
         elif bt and ba and not task_dead:
@@ -1091,7 +1030,7 @@ async def handle(cmd: dict, state: dict):
         try:
             if action == "get":
                 emit(await _profile_cog.snapshot())
-            else:  # "apply"
+            else:
                 result = await _profile_cog.apply(cmd.get("fields") or {})
                 emit(await _profile_cog.snapshot())
                 if result.get("errors"):
@@ -1108,7 +1047,6 @@ async def handle(cmd: dict, state: dict):
 
     elif c == "logout":
         os._exit(0)
-
 
 async def main():
     state = {}
@@ -1129,7 +1067,6 @@ async def main():
         except Exception as e:
             emit({"type": "log", "msg": f"handler error: {e}"})
             log(traceback.format_exc())
-
 
 if __name__ == "__main__":
     try:

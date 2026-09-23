@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Beyond — PC-side relay agent.
 
@@ -59,18 +59,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 RENDERER = os.path.join(HERE, "..", "renderer")
 CFG_PATH = os.path.join(HERE, "agent_config.json")
 
-DEFAULT_RELAY_BASE = "https://agent.selfbot.fyi"   # grey-cloud host for the agent
-DEFAULT_VIEWER_BASE = "https://selfbot.fyi"        # where users open their panel
+DEFAULT_RELAY_BASE = "https://agent.selfbot.fyi"
+DEFAULT_VIEWER_BASE = "https://selfbot.fyi"
 
-# events emitted by the backend/cogs, waiting to go out over the relay
-_QUEUE: "asyncio.Queue[dict]" = None  # type: ignore
-_LOOP: asyncio.AbstractEventLoop = None  # type: ignore
-_CUR_WS = None  # the live relay WebSocket, or None while disconnected
+_QUEUE: "asyncio.Queue[dict]" = None
+_LOOP: asyncio.AbstractEventLoop = None
+_CUR_WS = None
 
-
-# --------------------------------------------------------------------------
-# transport swap: route beyond_backend.emit() into the relay queue
-# --------------------------------------------------------------------------
 def _agent_emit(obj: dict) -> None:
     """Replacement for beyond_backend.emit — thread/loop-safe enqueue."""
     try:
@@ -78,7 +73,6 @@ def _agent_emit(obj: dict) -> None:
             _LOOP.call_soon_threadsafe(_QUEUE.put_nowait, obj)
     except Exception:
         pass
-
 
 def _local_log(msg: str) -> None:
     """Agent's own diagnostics go to stderr (never the relay protocol)."""
@@ -88,10 +82,6 @@ def _local_log(msg: str) -> None:
     except Exception:
         pass
 
-
-# --------------------------------------------------------------------------
-# config
-# --------------------------------------------------------------------------
 def load_cfg() -> dict:
     cfg = {
         "relay_base": "", "viewer_base": "", "enroll_key": "",
@@ -106,14 +96,13 @@ def load_cfg() -> dict:
                     cfg[k] = str(j[k]).strip()
         except Exception as e:
             _local_log(f"could not read agent_config.json: {e}")
-    # env overrides (handy for headless / multiple installs on one box)
+
     cfg["relay_base"] = (os.environ.get("BEYOND_RELAY_BASE", "").strip() or cfg["relay_base"] or DEFAULT_RELAY_BASE)
     cfg["viewer_base"] = (os.environ.get("BEYOND_VIEWER_BASE", "").strip() or cfg["viewer_base"] or DEFAULT_VIEWER_BASE)
     cfg["enroll_key"] = os.environ.get("BEYOND_ENROLL_KEY", "").strip() or cfg["enroll_key"]
     cfg["relay_base"] = cfg["relay_base"].rstrip("/")
     cfg["viewer_base"] = cfg["viewer_base"].rstrip("/")
     return cfg
-
 
 def save_cfg(cfg: dict) -> None:
     """Persist config with owner-only perms (contains this install's secrets)."""
@@ -124,39 +113,34 @@ def save_cfg(cfg: dict) -> None:
         with open(CFG_PATH, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
         try:
-            os.chmod(CFG_PATH, 0o600)  # no-op on Windows, matters on *nix
+            os.chmod(CFG_PATH, 0o600)
         except Exception:
             pass
     except Exception as e:
         _local_log(f"could not save agent_config.json: {e}")
 
-
 def _gen_password() -> str:
     """A strong, human-copyable password: 4 groups of 4 url-safe chars."""
-    alpha = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"  # no look-alikes
+    alpha = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
     groups = ["".join(secrets.choice(alpha) for _ in range(4)) for _ in range(4)]
     return "-".join(groups)
-
 
 def _agent_ws_url(cfg: dict) -> str:
     base = cfg["relay_base"]
     ws = "wss://" + base.split("://", 1)[-1] if base.startswith("https://") else "ws://" + base.split("://", 1)[-1]
     return ws + "/agent/ws"
 
-
 async def ensure_enrolled(cfg: dict, session: "aiohttp.ClientSession") -> bool:
     """First run: generate this install's identity + password and register with
     the relay to obtain a slug. Returns True when the tenant is ready."""
     if cfg.get("slug") and cfg.get("agent_secret"):
-        return True  # already enrolled
+        return True
 
     if not cfg.get("enroll_key"):
         _local_log("ERROR: no enroll_key set. Put the relay's BEYOND_ENROLL_KEY "
                    "into backend/agent_config.json (\"enroll_key\") to register this install.")
         return False
 
-    # generate this install's identity locally; the relay never sees these raw
-    # again after enrollment (it stores only hashes).
     agent_secret = cfg.get("agent_secret") or secrets.token_urlsafe(32)
     password = cfg.get("viewer_password") or _gen_password()
 
@@ -188,7 +172,6 @@ async def ensure_enrolled(cfg: dict, session: "aiohttp.ClientSession") -> bool:
     _local_log("enrolled successfully")
     return True
 
-
 def _print_panel_info(cfg: dict) -> None:
     url = f"{cfg['viewer_base']}/p/{cfg['slug']}"
     line = "=" * 56
@@ -198,10 +181,6 @@ def _print_panel_info(cfg: dict) -> None:
                "\n  Share these with nobody you don't trust — they are full"
                "\n  control of this account. Keep this window running.\n" + line)
 
-
-# --------------------------------------------------------------------------
-# UI bundle: build the web-adapted index.html (inline the shim before app.js)
-# --------------------------------------------------------------------------
 def build_ui_bundle() -> dict:
     """Produce a fully SELF-CONTAINED web index.html.
 
@@ -223,27 +202,20 @@ def build_ui_bundle() -> dict:
     styles = _read("styles.css")
     shim = _read("web-shim.js")
 
-    # 1) inline the stylesheet (replace the <link rel="stylesheet" ...styles.css...>)
     style_block = "<style>\n" + styles + "\n</style>"
     new_index, n = re.subn(
         r"<link[^>]*href=[\"']styles\.css[\"'][^>]*>", lambda m: style_block, index, count=1
     )
     index = new_index if n else index.replace("</head>", style_block + "\n</head>", 1)
 
-    # 2) inline the shim + app.js (replace <script src="app.js"></script>)
     script_block = "<script>\n" + shim + "\n</script>\n<script>\n" + app_js + "\n</script>"
     new_index, n = re.subn(
         r"<script[^>]*src=[\"']app\.js[\"'][^>]*>\s*</script>", lambda m: script_block, index, count=1
     )
     index = new_index if n else index.replace("</body>", script_block + "\n</body>", 1)
 
-    # app.js/styles.css are still sent (harmless) in case the relay wants them
     return {"index.html": index, "app.js": app_js, "styles.css": styles}
 
-
-# --------------------------------------------------------------------------
-# relay connection
-# --------------------------------------------------------------------------
 async def _sender():
     """Drain the event queue into the current relay WS (drop while offline —
     a reconnecting viewer is re-hydrated by the relay's refresh)."""
@@ -257,14 +229,12 @@ async def _sender():
         except Exception:
             pass
 
-
 async def _handle_cmd(data: dict, state: dict):
     try:
         await bb.handle(data, state)
     except Exception as e:
         _agent_emit({"type": "log", "msg": f"handler error: {e}"})
         _local_log("handler error:\n" + traceback.format_exc())
-
 
 async def run_once(cfg: dict, session: "aiohttp.ClientSession", state: dict) -> None:
     global _CUR_WS
@@ -299,7 +269,7 @@ async def run_once(cfg: dict, session: "aiohttp.ClientSession", state: dict) -> 
                 elif t == "cmd":
                     data = frame.get("data") or {}
                     if isinstance(data, dict) and data.get("cmd"):
-                        # run concurrently so pings keep getting answered
+
                         asyncio.create_task(_handle_cmd(data, state))
             elif msg.type in (aiohttp.WSMsgType.CLOSED,
                               aiohttp.WSMsgType.CLOSING,
@@ -307,14 +277,12 @@ async def run_once(cfg: dict, session: "aiohttp.ClientSession", state: dict) -> 
                 break
     _CUR_WS = None
 
-
 async def main():
     global _QUEUE, _LOOP
     _LOOP = asyncio.get_event_loop()
     _QUEUE = asyncio.Queue()
 
-    # swap the backend's transport: every emit() now flows to the relay
-    bb.emit = _agent_emit  # cogs pick this up via `x.EMIT = emit` at login time
+    bb.emit = _agent_emit
 
     cfg = load_cfg()
     state: dict = {}
@@ -322,7 +290,7 @@ async def main():
 
     timeout = aiohttp.ClientTimeout(total=None, sock_connect=20)
     async with aiohttp.ClientSession(timeout=timeout) as session:
-        # first run: register this install and obtain its slug (retry if relay down)
+
         while not await ensure_enrolled(cfg, session):
             _local_log("enrollment not complete — retrying in 30s")
             await asyncio.sleep(30)
@@ -332,13 +300,13 @@ async def main():
         backoff = 1.0
         while True:
             try:
-                # let a freshly-connected viewer see the panel link/password too
+
                 _agent_emit({"type": "panel_info",
                              "url": f"{cfg['viewer_base']}/p/{cfg['slug']}",
                              "password": cfg["viewer_password"]})
                 await run_once(cfg, session, state)
                 _local_log("relay connection closed — reconnecting")
-                backoff = 1.0  # clean close: reconnect promptly
+                backoff = 1.0
             except aiohttp.ClientResponseError as e:
                 hdrs = getattr(e, "headers", None) or {}
                 server = str(hdrs.get("Server", "")).lower()
@@ -362,7 +330,6 @@ async def main():
                 _local_log(f"relay connection error: {e}")
                 backoff = min(backoff * 2, 30.0)
             await asyncio.sleep(backoff)
-
 
 if __name__ == "__main__":
     try:

@@ -26,23 +26,21 @@ from modifyself.commands.core import command
 
 import persistence
 
-# set by beyond_backend so the cog can push live rows to the Electron UI
 EMIT = None
 
-_CACHE_CAP = 8000          # rolling message cache for delete/edit before-content
-_FEED_CAP = 400            # how many recent hits we keep to replay to the UI
+_CACHE_CAP = 8000
+_FEED_CAP = 400
 
 _DEFAULT_CFG = {
     "enabled": False,
-    "keywords": [],         # case-insensitive substrings
-    "mentions": True,       # log when you get pinged
-    "deletes": True,        # log deleted messages
-    "edits": True,          # log edited messages
-    "ignore_self": True,    # skip your own messages
+    "keywords": [],
+    "mentions": True,
+    "deletes": True,
+    "edits": True,
+    "ignore_self": True,
     "scope": {"mode": "all", "guild_id": "", "channel_id": ""},
-    # mode: all | dms | guilds | guild | channel
-}
 
+}
 
 def _emit(obj: dict) -> None:
     if EMIT:
@@ -51,27 +49,24 @@ def _emit(obj: dict) -> None:
         except Exception:
             pass
 
-
 class MessageLogger(Cog):
 
     def __init__(self, bot):
         super().__init__(bot)
         cfg = persistence.get("msglogger", {})
         self.cfg = {**_DEFAULT_CFG, **(cfg if isinstance(cfg, dict) else {})}
-        # normalise scope
+
         sc = self.cfg.get("scope") or {}
         self.cfg["scope"] = {**_DEFAULT_CFG["scope"], **(sc if isinstance(sc, dict) else {})}
         self._cache: "OrderedDict[int, dict]" = OrderedDict()
-        self._feed: list = []   # recent hits (for UI replay)
+        self._feed: list = []
 
-    # ── persistence ──────────────────────────────────────────────────────
     def _save(self):
         persistence.set_key("msglogger", self.cfg)
 
     def state(self) -> dict:
         return {"type": "logger_state", "config": self.cfg, "feed": self._feed[-_FEED_CAP:]}
 
-    # ── config mutation (driven by UI IPC or the selfbot command) ────────
     def apply_config(self, patch: dict) -> dict:
         if not isinstance(patch, dict):
             return self.cfg
@@ -106,7 +101,6 @@ class MessageLogger(Cog):
     def clear_feed(self):
         self._feed = []
 
-    # ── scope test ───────────────────────────────────────────────────────
     def _in_scope(self, guild_id, channel_id) -> bool:
         sc = self.cfg["scope"]
         mode = sc.get("mode", "all")
@@ -124,7 +118,6 @@ class MessageLogger(Cog):
             return cid == sc.get("channel_id", "")
         return True
 
-    # ── cache + emit helpers ─────────────────────────────────────────────
     def _cache_put(self, mid: int, entry: dict):
         self._cache[mid] = entry
         self._cache.move_to_end(mid)
@@ -156,7 +149,6 @@ class MessageLogger(Cog):
             "ts": int(time.time()),
         }
 
-    # ── listeners ────────────────────────────────────────────────────────
     @listener()
     async def on_message_create(self, message):
         try:
@@ -177,14 +169,12 @@ class MessageLogger(Cog):
             if not self._in_scope(base["guild_id"], base["channel_id"]):
                 return
 
-            # mention hit
             if self.cfg.get("mentions") and me is not None:
                 ids = [str(getattr(u, "id", "")) for u in (getattr(message, "mentions", []) or [])]
                 if str(me.id) in ids:
                     self._push({**base, "kind": "mention"})
-                    return  # a ping is already noteworthy; don't double-count keywords
+                    return
 
-            # keyword hit
             words = self.cfg.get("keywords") or []
             if words:
                 low = base["content"].lower()
@@ -199,7 +189,7 @@ class MessageLogger(Cog):
     async def on_message_update(self, message):
         try:
             if not (self.cfg.get("enabled") and self.cfg.get("edits")):
-                # still keep the cache fresh so a later delete has latest content
+
                 mid = int(getattr(message, "id", 0) or 0)
                 if mid:
                     self._cache_put(mid, self._base_from_message(message))
@@ -208,7 +198,7 @@ class MessageLogger(Cog):
             after = self._base_from_message(message)
             prev = self._cache.get(mid)
             before = prev.get("content", "") if prev else ""
-            # refresh cache to the new content
+
             if mid:
                 self._cache_put(mid, after)
             if self.cfg.get("ignore_self") and self.bot.user and after["author_id"] == str(self.bot.user.id):
@@ -216,7 +206,7 @@ class MessageLogger(Cog):
             if not self._in_scope(after["guild_id"], after["channel_id"]):
                 return
             if not after["content"] or after["content"] == before:
-                return  # embed-only / no real text change
+                return
             self._push({**after, "kind": "edit", "before": before, "after": after["content"]})
         except Exception:
             pass
@@ -226,7 +216,7 @@ class MessageLogger(Cog):
         try:
             if not (self.cfg.get("enabled") and self.cfg.get("deletes")):
                 return
-            # payload is a Message (if it was in modifyself's cache) or raw dict
+
             if isinstance(payload, dict):
                 mid = int(payload.get("id", 0) or 0)
                 cid = str(payload.get("channel_id", "") or "")
@@ -258,7 +248,6 @@ class MessageLogger(Cog):
         except Exception:
             pass
 
-    # ── selfbot command ──────────────────────────────────────────────────
     @command(name="msglog", aliases=["logger", "mlog"])
     async def msglog(self, ctx):
         parts = ctx.message.content.split()
@@ -333,7 +322,6 @@ class MessageLogger(Cog):
                 f"**Keywords** {', '.join(self.cfg['keywords']) or 'none'}\n"
                 "-# `.msglog on|off` · `add <w>` · `remove <w>` · `scope all|dms|guilds|guild <id>|channel <id>`"
             )
-
 
 def setup(bot):
     bot.add_cog(MessageLogger(bot))

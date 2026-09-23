@@ -1,4 +1,4 @@
-// Beyond — preload bridge. Renderer <-> main (which relays to the Python backend).
+
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("beyond", {
@@ -15,6 +15,6 @@ contextBridge.exposeInMainWorld("beyond", {
   win: (action) => ipcRenderer.send("win", action),
   openExternal: (url) => ipcRenderer.send("open-external", url),
   admin: (payload) => ipcRenderer.invoke("admin-request", payload),
-  // live event stream from the Python/modifyself backend
+
   onEvent: (cb) => ipcRenderer.on("backend", (_e, data) => cb(data)),
 });

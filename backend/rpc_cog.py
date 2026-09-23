@@ -95,21 +95,13 @@ _PLATFORM_PROPS: dict[str, dict] = {
     },
 }
 
-# ── main-gateway platform spoof ──────────────────────────────────────────────
-# modifyself's GatewayWebSocket hardcodes Windows/Chrome properties in
-# _identify() and uses __slots__, so per-instance attribute patching is
-# impossible (AttributeError). We class-patch _identify ONCE with a version
-# that builds the payload from the active platform. "off" → original payload.
 _ACTIVE_PLATFORM: dict = {"key": "off"}
-
 
 def set_active_platform(key: str) -> None:
     _ACTIVE_PLATFORM["key"] = key if key in _PLATFORM_PROPS else "off"
 
-
 def get_active_platform() -> str:
     return _ACTIVE_PLATFORM["key"]
-
 
 def install_platform_patch() -> None:
     from modifyself.gateway.websocket import GatewayWebSocket
@@ -175,9 +167,7 @@ def install_platform_patch() -> None:
     GatewayWebSocket._identify = _identify
     GatewayWebSocket._platform_patched = True
 
-
 install_platform_patch()
-
 
 class _PlatformGateway:
     """Lightweight extra gateway connection that only IDENTIFYs with a specific platform."""
@@ -250,7 +240,7 @@ class _PlatformGateway:
         elif op == 1:
             await self._send({"op": 1, "d": None})
         elif op == 7:
-            return True  # reconnect
+            return True
         elif op == 9:
             await asyncio.sleep(random.uniform(1, 5))
             await self._identify()
@@ -300,7 +290,6 @@ class _PlatformGateway:
                 pass
             self._ws = None
 
-
 def _split_rotatable(cmd: dict) -> list:
     splits = {}
     for field in _ROTATABLE_FIELDS:
@@ -317,7 +306,6 @@ def _split_rotatable(cmd: dict) -> list:
             variant[field] = parts[i % len(parts)]
         variants.append(variant)
     return variants
-
 
 def _parse_kv(args: list) -> dict:
     cmd = {}
@@ -342,7 +330,6 @@ def _parse_kv(args: list) -> dict:
         i += 2
     return cmd
 
-
 class RPC(Cog, ASCIIMixin):
 
     def __init__(self, bot):
@@ -354,14 +341,14 @@ class RPC(Cog, ASCIIMixin):
         self._status: str = "online"
         self._extra_gws: dict[str, asyncio.Task] = {}
         self._extra_gw_objs: dict[str, _PlatformGateway] = {}
-        # presets: name -> {rpc_type: cmd_dict, ...}
+
         self._presets: dict = persistence.get("rpc_presets", {})
-        # stack: pending set of simultaneous activities (list of cmd dicts)
+
         self._stack: list = persistence.get("rpc_stack", [])
-        # named rotation: list of {cmd, interval}
+
         self._named_rotation: list = persistence.get("rpc_named_rotation", [])
         self._named_rotation_task: Optional[asyncio.Task] = None
-        # dashboard queue loop (dashboard_rpc.json written by the site backend)
+
         self._dash_task: Optional[asyncio.Task] = None
 
     def _save_rpc(self):
@@ -379,11 +366,6 @@ class RPC(Cog, ASCIIMixin):
             asyncio.ensure_future(self._restore_multiplatform(saved_multi))
         if self._dash_task is None or self._dash_task.done():
             self._dash_task = asyncio.ensure_future(self._dashboard_queue_loop())
-
-    # ── dashboard queue (dashboard_rpc.json) ─────────────────────────────
-    # The site backend drops one-shot action files into this instance's own
-    # working directory; this loop applies them live so the RPC Editor /
-    # Presets / Rotation / Platform pages control the running bot directly.
 
     def _dashboard_queue_path(self) -> str:
         return os.path.join(persistence.instance_dir(), "dashboard_rpc.json")
@@ -454,10 +436,7 @@ class RPC(Cog, ASCIIMixin):
                 self._named_rotation = list(entries)
                 self._save_named_rotation()
                 if payload.get("start") and self._named_rotation:
-                    # Take over presence cleanly: stop any per-type rotations and
-                    # drop the current static RPC, otherwise _build_and_send would
-                    # merge each rotation frame with the leftover activities and
-                    # the rotation would look like it "didn't apply".
+
                     for rt in list(self._rotation_tasks):
                         self._stop_rotation(rt)
                     self._active.clear()
@@ -506,10 +485,7 @@ class RPC(Cog, ASCIIMixin):
                 pass
 
     async def _send_payload(self, activities: list, *, retries: int = 6) -> bool:
-        # modifyself's send_json silently no-ops when the socket is None or
-        # closed, so a presence update issued while the gateway is reconnecting
-        # is dropped with no error and nothing retries it until the keepalive
-        # fires 25 minutes later. Wait for a live socket instead.
+
         payload = {
             "op": 3,
             "d": {
@@ -531,7 +507,7 @@ class RPC(Cog, ASCIIMixin):
         return False
 
     def _get_asset_channel_id(self) -> str:
-        # configurable via state.json ("rpc_asset_channel"); falls back to the default
+
         return persistence.get("rpc_asset_channel", _ASSET_CHANNEL_ID)
 
     async def _fallback_asset_channel(self) -> Optional[str]:
@@ -624,7 +600,7 @@ class RPC(Cog, ASCIIMixin):
                 body=body,
             )
             if int(resp.status.as_int()) not in (200, 201):
-                # configured asset channel is dead — try a live guild channel
+
                 ch_id = await self._fallback_asset_channel()
                 if not ch_id:
                     return None
@@ -977,7 +953,7 @@ class RPC(Cog, ASCIIMixin):
         self._named_rotation_task = None
 
     async def _run_named_rotation(self):
-        # cycles through entries, each for its own interval
+
         idx = 0
         try:
             while self._named_rotation:
@@ -1042,7 +1018,6 @@ class RPC(Cog, ASCIIMixin):
             await self.asuccess(ctx, "rich presence cleared", delay=8)
             return
 
-        # ── preset subcommand ──────────────────────────────────────────────
         if rpc_type == "preset":
             sub = args[1].lower() if len(args) > 1 else ""
             name = args[2] if len(args) > 2 else ""
@@ -1092,15 +1067,11 @@ class RPC(Cog, ASCIIMixin):
                 ], delay=10)
             return
 
-        # ── stack subcommand ───────────────────────────────────────────────
-        # Stack = a pending set of multiple simultaneous activities.
-        # Build up entries of different types, then apply them all at once.
         if rpc_type == "stack":
             sub = args[1].lower() if len(args) > 1 else ""
 
             if sub == "add":
-                # .rpc stack add <type> [key=value...]
-                # Supports all types + all keys (imglink, details, state, buttons, etc.)
+
                 if len(args) < 3:
                     await self.aerror(ctx, "usage: .rpc stack add <type> [key=value...]", delay=10)
                     return
@@ -1109,7 +1080,7 @@ class RPC(Cog, ASCIIMixin):
                 if rt not in _RPC_TYPES:
                     await self.aerror(ctx, f"unknown type '{rt}' — valid: {', '.join(_RPC_TYPES)}", delay=10)
                     return
-                # one entry per rpc_type — overwrite if same type added again
+
                 self._stack = [e for e in self._stack if e.get("rpc_type") != rt]
                 self._stack.append(inner_cmd)
                 self._save_stack()
@@ -1165,12 +1136,11 @@ class RPC(Cog, ASCIIMixin):
                 ], delay=15)
             return
 
-        # ── rotation subcommand ────────────────────────────────────────────
         if rpc_type == "rotation":
             sub = args[1].lower() if len(args) > 1 else ""
 
             if sub == "add":
-                # .rpc rotation add <interval_secs> <rpc_type> [key=value...]
+
                 if len(args) < 4:
                     await self.aerror(ctx, "usage: .rpc rotation add <interval_secs> <type> [key=value...]", delay=10)
                     return
@@ -1308,7 +1278,6 @@ class RPC(Cog, ASCIIMixin):
             await self.aerror(ctx, f"valid: {', '.join(_PLATFORM_PROPS)}", delay=8)
             return
 
-        # patch the gateway's IDENTIFY payload (handles "off" → original too)
         set_active_platform(rest)
         persistence.set_key("platform", rest)
 
@@ -1324,7 +1293,6 @@ class RPC(Cog, ASCIIMixin):
     async def multiplatform(self, ctx):
         rest = " ".join(ctx.message.content.split()[1:]).strip().lower()
 
-        # close existing extra gateways first
         for name, task in list(self._extra_gws.items()):
             gw_obj = self._extra_gw_objs.pop(name, None)
             if gw_obj:
@@ -1364,13 +1332,10 @@ class RPC(Cog, ASCIIMixin):
             await self.aerror(ctx, f"valid: {', '.join(valid)}", delay=6)
             return
         self._status = rest
-        # Rebuild whatever RPC is currently active and resend it alongside
-        # the new status — a bare op:3 with activities=[] (the old behavior)
-        # wipes any running rich presence every time the status changes.
+
         merged = [a for a in [await self._build_activity(c) for c in self._active.values()] if a]
         await self._send_payload(merged)
         await self.asuccess(ctx, f"status set to {rest}", delay=5)
-
 
 def setup(bot):
     bot.add_cog(RPC(bot))

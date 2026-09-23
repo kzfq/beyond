@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """Run the RPC image-upload path with NO error swallowing, so the real failure
 is printed. Run:  python backend\\rpc_imgtest.py"""
 import asyncio
@@ -10,7 +10,6 @@ import uuid
 _CDN_PAT = r"https?://(?:cdn\.discordapp\.com|media\.discordapp\.net)/attachments/(\d+)/(\d+)/(.+)"
 _ASSET_CHANNEL_ID = "1477758738772525239"
 
-
 def prompt(label, secret=False):
     if secret:
         try:
@@ -19,7 +18,6 @@ def prompt(label, secret=False):
         except Exception:
             pass
     return input(label).strip()
-
 
 async def fallback_channel(http):
     from modifyself.http.route import Route
@@ -32,7 +30,6 @@ async def fallback_channel(http):
                 print(f"   fallback channel: #{c.get('name')} ({c['id']}) in guild {g.get('id')}")
                 return str(c["id"])
     return None
-
 
 async def main():
     token = prompt("Account token (hidden): ", secret=True)
@@ -126,7 +123,6 @@ async def main():
         print("\nRESULT: uploaded but no attachment in response:", text[:300])
     else:
         print("\nRESULT: upload failed even on fallback. See status/response above.")
-
 
 if __name__ == "__main__":
     asyncio.run(main())

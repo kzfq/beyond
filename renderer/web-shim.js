@@ -1,27 +1,7 @@
-/*
- * Beyond — WEB shim.
- *
- * In the Electron app, preload.js exposes window.beyond backed by IPC to the
- * local Python backend. In the browser (served remotely through selfbot.fyi),
- * there is no Electron/preload — so this shim provides the SAME window.beyond
- * API, backed by a WebSocket to the relay's viewer endpoint (/p/<slug>/ws).
- *
- * Wire protocol (matches the relay contract):
- *   viewer -> relay : {"t":"cmd","data":{ cmd:"login"|"rpc"|... , ... }}
- *   relay  -> viewer: {"t":"event","data":{ type:"ready"|"stats"|... }}
- *                     {"t":"agent_status","online":true|false}
- *
- * The `data` command envelopes are byte-for-byte what the Electron main process
- * used to write to the backend's stdin, so the backend's handle() loop and the
- * renderer's app.js both run completely unchanged.
- *
- * This file is INLINED into the web index.html by beyond_agent.py before it
- * ships the UI bundle to the relay, so it loads before app.js.
- */
+
 (function () {
   "use strict";
 
-  // The page is served at /p/<slug>; the viewer socket is that same path + /ws.
   var basePath = location.pathname.replace(/\/+$/, "");
   var VIEWER_WS =
     (location.protocol === "https:" ? "wss://" : "ws://") +
@@ -32,8 +12,8 @@
   var backoff = 1000;
   var listeners = [];
   var outbox = [];
-  var agentOnline = true; // page is only served while the agent is connected
-  var offlineTimer = null; // debounce so a transient status race can't stick
+  var agentOnline = true;
+  var offlineTimer = null;
 
   function emitLocal(evt) {
     for (var i = 0; i < listeners.length; i++) {
@@ -41,7 +21,6 @@
     }
   }
 
-  // ---- tiny status overlay (offline / reconnecting) ----
   var overlay = null, overlayMsg = null;
   function ensureOverlay() {
     if (overlay) return;
@@ -85,8 +64,7 @@
     if (connected) hideOverlay();
   }
   function markOffline() {
-    // debounce: only believe "offline" if no event/true-status arrives shortly
-    // after (guards against a connect-time status race with the agent).
+
     if (offlineTimer) return;
     offlineTimer = setTimeout(function () {
       offlineTimer = null;
@@ -109,8 +87,7 @@
       var msg;
       try { msg = JSON.parse(e.data); } catch (_) { return; }
       if (msg.t === "event") {
-        // an event can only originate from the agent, so the PC IS online —
-        // this overrides any stale/racy agent_status:false.
+
         markOnline();
         emitLocal(msg.data || {});
       } else if (msg.t === "agent_status") {
@@ -166,9 +143,9 @@
     logger: function (payload) { sendCmd(Object.assign({ cmd: "logger" }, payload || {})); },
     profile: function (payload) { sendCmd(Object.assign({ cmd: "profile" }, payload || {})); },
     logout: function () { sendCmd({ cmd: "logout" }); },
-    // no token is persisted in the browser; the PC re-hydrates the panel on connect
+
     savedToken: function () { return Promise.resolve(null); },
-    // window controls are meaningless in a browser tab
+
     win: function () {},
     openExternal: function (url) { try { window.open(url, "_blank", "noopener"); } catch (_) {} },
     admin: adminFetch,

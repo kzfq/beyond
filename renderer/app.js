@@ -1,11 +1,10 @@
-// Beyond — renderer logic. Talks only to the Python/modifyself backend via events.
+
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const RING_C = 2 * Math.PI * 52;
 
 $$("[data-win]").forEach((b) => b.addEventListener("click", () => window.beyond.win(b.dataset.win)));
 
-// ---- real Discord badges (public_flags -> badge-icons art) -----------------
 const BADGES = [
   [1 << 0, "Discord Staff", "5e74e9b61934fc1f67c65515d1f7e60d"],
   [1 << 1, "Partnered Server Owner", "3f9748e53446a137a052f3454e2de41e"],
@@ -33,7 +32,6 @@ function renderBadges(flags, nitroActive) {
   el.innerHTML = items.join("") || `<span class="badge-none">No badges</span>`;
 }
 
-// ---- notifications ----------------------------------------------------------
 const NICO = {
   info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 11v5M12 8h.01" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>',
   ok: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 12.5l2.5 2.5 5-5.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -71,7 +69,6 @@ $("#clearNotif").addEventListener("click", () => { notifs.length = 0; renderNoti
 setInterval(updateTimes, 15000);
 renderNotifs();
 
-// ---- rings + uptime --------------------------------------------------------
 function setRing(el, value, max) { el.style.strokeDashoffset = String(RING_C * (1 - Math.max(0, Math.min(1, value / max)))); }
 function countUp(el, to) {
   const t0 = performance.now();
@@ -93,7 +90,6 @@ setInterval(() => {
   $("#upMM").textContent = pad(mm); $("#upSS").textContent = pad(s);
 }, 500);
 
-// ---- render stats ----------------------------------------------------------
 let cmdCount = 0;
 function renderStats(s) {
   $("#greetName").textContent = s.globalName;
@@ -107,7 +103,7 @@ function renderStats(s) {
   countUp($("#friendsVal"), s.friends);
   setRing($("#ringServers"), s.servers, 100);
   setRing($("#ringFriends"), s.friends, 1000);
-  // account tab mirrors
+
   const h = s.discriminator ? `${s.username}#${s.discriminator}` : `@${s.username}`;
   if ($("#avatar2")) $("#avatar2").src = s.avatarUrl;
   if ($("#username2")) $("#username2").textContent = s.globalName;
@@ -115,7 +111,6 @@ function renderStats(s) {
   if ($("#userId2")) $("#userId2").textContent = s.id;
 }
 
-// ---- tab navigation --------------------------------------------------------
 $$(".rail-btn[data-tab]").forEach((btn) => {
   btn.addEventListener("click", () => {
     $$(".rail-btn").forEach((b) => b.classList.remove("active"));
@@ -125,7 +120,6 @@ $$(".rail-btn[data-tab]").forEach((btn) => {
   });
 });
 
-// ---- login -----------------------------------------------------------------
 const loginEl = $("#login"), appEl = $("#app"), tokenInput = $("#token"), errEl = $("#loginError");
 let pending = false;
 $("#reveal").addEventListener("click", () => { tokenInput.type = tokenInput.type === "password" ? "text" : "password"; });
@@ -153,7 +147,6 @@ $("#addBtn").addEventListener("click", doSwitch);
 if ($("#switchBtn2")) $("#switchBtn2").addEventListener("click", doSwitch);
 if ($("#refreshBtn")) $("#refreshBtn").addEventListener("click", () => window.beyond.refresh());
 
-// ---- toggles / config (dashboard + config tab mirror each other) ----------
 const tglPrivate = $("#tglPrivate"), tglDisc = $("#tglDiscoverable");
 const tglPrivate2 = $("#tglPrivate2"), tglDisc2 = $("#tglDiscoverable2");
 function loadToggles() {
@@ -187,7 +180,6 @@ if (tglPrivate2) tglPrivate2.addEventListener("change", () => { syncToggles(tglP
 if (tglDisc2) tglDisc2.addEventListener("change", () => { syncToggles(tglPrivate.checked, tglDisc2.checked); sendConfig(); });
 loadToggles();
 
-// ---- slash-bot connect -----------------------------------------------------
 const botToken = $("#botToken"), botApp = $("#botApp"), botConnect = $("#botConnect"),
       botStatus = $("#botStatus"), botDot = $("#botDot"), botGuild = $("#botGuild");
 let lastInvite = null;
@@ -205,12 +197,11 @@ botConnect.addEventListener("click", () => {
   try { localStorage.setItem("beyond.bot", JSON.stringify({ appId: a, token: t, guild: g })); } catch (_) {}
   botConnect.disabled = true; botConnect.textContent = "Connecting…";
   botStatus.textContent = "Starting real bot…";
-  // Only open the authorize page if the app hasn't been added yet.
+
   sendConfig(true, !botAuthorized());
 });
 loadBotCreds();
 
-// ---- RPC editor + live preview --------------------------------------------
 const RPC = {
   type: $("#rpcType"), name: $("#rpcName"), text: $("#rpcText"),
   details: $("#rpcDetails"), state: $("#rpcState"),
@@ -239,7 +230,7 @@ function applyTypeVisibility() {
     el.classList.toggle("hidden", !el.dataset.only.split(",").includes(t));
   });
 }
-// set text on an inline-editable node without clobbering the caret while typing
+
 function setPv(el, val, ph) {
   if (el === document.activeElement) return;
   el.textContent = val || "";
@@ -271,7 +262,6 @@ function updatePreview() {
   setPv($("#pvDetail"), RPC.details.value, "Details (line 1)");
   setPv($("#pvState"), RPC.state.value, "State (line 2)");
 
-  // large image (or a clickable placeholder)
   const li = RPC.largeImg.value.trim();
   if (li) { $("#pvLarge").src = li; $("#pvLarge").classList.remove("hidden"); $("#pvLargePlaceholder").classList.add("hidden"); }
   else { $("#pvLarge").classList.add("hidden"); $("#pvLargePlaceholder").classList.remove("hidden"); }
@@ -279,24 +269,19 @@ function updatePreview() {
   if (si) { $("#pvSmall").src = si; $("#pvSmall").classList.remove("hidden"); }
   else $("#pvSmall").classList.add("hidden");
 
-  // time
   const el = parseFloat(RPC.elapsed.value || "0");
   const tot = parseFloat(RPC.total.value || "0");
   $("#pvTime").textContent = tot > 0 ? `${fmtMin(el)} / ${fmtMin(tot)}` : `${fmtMin(el)} elapsed`;
 
-  // buttons (clickable → focuses the matching field)
   const btns = [];
   if (RPC.btn1.value) btns.push([RPC.btn1.value, "rpcBtn1"]);
   if (RPC.btn2.value) btns.push([RPC.btn2.value, "rpcBtn2"]);
   $("#pvButtons").innerHTML = btns.map(([b, f]) => `<div class="pvbtn" data-focus="${f}">${esc(b)}</div>`).join("");
 }
 
-// typing in the form updates the preview
 Object.values(RPC).forEach((el) => el && el.addEventListener("input", updatePreview));
 RPC.type.addEventListener("change", () => { applyTypeVisibility(); updatePreview(); });
 
-// ---- click-the-embed-to-edit ----------------------------------------------
-// inline-editable lines (name / details / state) write straight back to the form
 $$(".pv-edit").forEach((elm) => {
   elm.addEventListener("input", () => {
     const field = elm.dataset.field;
@@ -311,7 +296,7 @@ $$(".pv-edit").forEach((elm) => {
   elm.addEventListener("blur", updatePreview);
   elm.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); elm.blur(); } });
 });
-// clicking art / time / buttons jumps to the matching input and flashes it
+
 $("#rpcCard").addEventListener("click", (e) => {
   const hit = e.target.closest("[data-focus]");
   if (!hit) return;
@@ -360,13 +345,12 @@ $$("#statusRow .status-pill").forEach((p) => {
     $$("#statusRow .status-pill").forEach((x) => x.classList.remove("active"));
     p.classList.add("active");
     rpcStatus = p.dataset.status;
-    // push status immediately (re-applies active presence with new status)
+
     window.beyond.rpc({ activity: { rpc_type: "__status_only__" }, status: rpcStatus });
   });
 });
 applyTypeVisibility(); updatePreview();
 
-// ---- Commands page ---------------------------------------------------------
 const COMMANDS = [
   ["help", "Show the command list", "help · cmds · commands"],
   ["ping", "Gateway latency", "ping"],
@@ -388,7 +372,6 @@ const COMMANDS = [
     </div>`).join("");
 })();
 
-// ---- Admin / Data tab ------------------------------------------------------
 const ADM = {
   base: $("#admBase"), key: $("#admKey"), endpoint: $("#admEndpoint"),
   params: $("#admParams"), limit: $("#admLimit"), page: $("#admPage"),
@@ -397,7 +380,7 @@ const ADM = {
 const ADM_DEFAULT_KEY = "lak_G33jkOoPR8g3EVIzhqJ6qXKojic7CuD1SFaf5ztZ5mQ";
 const ADM_DEFAULT_BASE = "https://logs.selfbot.fyi";
 const ADM_TYPES = ["", "custom_status", "username", "global_name", "nickname", "avatar", "guild_avatar", "discriminator"];
-// per-endpoint parameter fields  ([id, label, kind, required])
+
 const ADM_PARAMS = {
   stats: [],
   profile: [["userId", "User ID", "text", true], ["type", "Field type", "type", false]],
@@ -412,7 +395,7 @@ function admLoad() {
   try {
     const s = JSON.parse(localStorage.getItem("beyond.admin") || "{}");
     let base = s.base || ADM_DEFAULT_BASE;
-    if (/104\.237\.6\.22/.test(base)) base = ADM_DEFAULT_BASE;  // migrate old raw IP
+    if (/104\.237\.6\.22/.test(base)) base = ADM_DEFAULT_BASE;
     ADM.base.value = base;
     ADM.key.value = s.key || ADM_DEFAULT_KEY;
   } catch (_) { ADM.base.value = ADM_DEFAULT_BASE; ADM.key.value = ADM_DEFAULT_KEY; }
@@ -453,7 +436,7 @@ function admFmt(k, v) {
   if (admIsImg(v)) return `<img class="adm-img" src="${esc(v)}" loading="lazy" />`;
   if (/^ts$|(_at|_time|timestamp|created|edited)$/i.test(k)) {
     let n = isNaN(v) ? Date.parse(v) : Number(v);
-    if (typeof v !== "string" || !isNaN(v)) { if (n < 1e12) n *= 1000; }  // epoch seconds -> ms
+    if (typeof v !== "string" || !isNaN(v)) { if (n < 1e12) n *= 1000; }
     const d = new Date(n);
     if (!isNaN(d)) return esc(d.toLocaleString());
   }
@@ -597,7 +580,6 @@ $("#admPrev").addEventListener("click", () => { ADM.page.value = Math.max(1, (pa
 $("#admNext").addEventListener("click", () => { ADM.page.value = (parseInt(ADM.page.value) || 1) + 1; admRun(); });
 admLoad(); admRenderParams();
 
-// ---- Spotify Lyrics tab ----------------------------------------------------
 const SP = {
   toggle: $("#spToggle"), idle: $("#spIdle"), player: $("#spPlayer"),
   cover: $("#spCover"), title: $("#spTitle"), artist: $("#spArtist"), album: $("#spAlbum"),
@@ -636,7 +618,7 @@ function spTick() {
   if (idx !== spState.curIdx) {
     if (spState.lineEls[spState.curIdx]) spState.lineEls[spState.curIdx].classList.remove("cur");
     spState.curIdx = idx;
-    spEqPulse = 3;  // kick the equalizer on each new line
+    spEqPulse = 3;
     const el = spState.lineEls[idx];
     if (el) {
       el.classList.add("cur");
@@ -646,7 +628,6 @@ function spTick() {
 }
 setInterval(spTick, 200);
 
-// reactive equalizer — JS-driven bars that jump on each beat/lyric line
 let spEqEls = [];
 let spEqPulse = 0;
 setInterval(() => {
@@ -657,7 +638,7 @@ setInterval(() => {
   spEqEls.forEach((el) => {
     const base = 5, max = 22;
     let h = base + Math.random() * (max - base);
-    if (pulsing) h = max - Math.random() * 5;   // spike on a new line
+    if (pulsing) h = max - Math.random() * 5;
     el.style.height = Math.round(h) + "px";
   });
 }, 90);
@@ -691,7 +672,6 @@ function spShowStopped() {
   SP.eq.classList.remove("playing");
 }
 
-// ---- Message Logger tab ----------------------------------------------------
 const LOG = {
   toggle: $("#logToggle"), kwInput: $("#logKwInput"), kwAdd: $("#logKwAdd"),
   kwList: $("#logKwList"), mentions: $("#logMentions"), deletes: $("#logDeletes"),
@@ -754,6 +734,7 @@ function logRowHtml(r) {
     ? `<div class="log-atts">${r.attachments.map((u) => `<a class="log-att" data-url="${esc(u)}">📎 attachment</a>`).join("")}</div>`
     : "";
   const jump = r.jump ? `<a class="log-jump" data-url="${esc(r.jump)}">open ↗</a>` : "";
+
   return `<div class="log-item log-${cls}" data-kind="${esc(r.kind)}">
     <span class="log-badge log-b-${cls}">${esc(cls)}</span>
     ${av}
@@ -800,7 +781,6 @@ if (LOG.toggle) {
   LOG.clear.addEventListener("click", () => { logRows = []; window.beyond.logger({ action: "clear" }); logRenderFeed(); });
 }
 
-// ---- Profile tab -----------------------------------------------------------
 const PROF = {
   display: $("#profDisplay"), pronouns: $("#profPronouns"), bio: $("#profBio"),
   avatar: $("#profAvatar"), banner: $("#profBanner"), accent: $("#profAccent"),
@@ -861,7 +841,6 @@ if (PROF.apply) {
   PROF.reload.addEventListener("click", () => window.beyond.profile({ action: "get" }));
 }
 
-// ---- backend event stream --------------------------------------------------
 window.beyond.onEvent((evt) => {
   switch (evt.type) {
     case "ready":
@@ -896,6 +875,7 @@ window.beyond.onEvent((evt) => {
       botDot.classList.remove("off"); botDot.classList.add("on");
       botConnect.disabled = false; botConnect.textContent = "Connected";
       botStatus.innerHTML = `Online as <b>${esc(evt.name)}</b>. ${lastInvite ? `<a id="botInvite">Re-open authorize page</a> · ` : ""}use <code>/help</code>.`;
+
       { const inv = $("#botInvite"); if (inv) inv.addEventListener("click", () => window.beyond.openExternal(lastInvite)); }
       break;
     case "rpcok":
@@ -918,7 +898,7 @@ window.beyond.onEvent((evt) => {
       spState.anchorWallMs = evt.anchorWallMs || Date.now();
       break;
     case "spotify_lyric":
-      // tick handles highlight; nothing needed here
+
       break;
     case "logger_state":
       logCfg = evt.config || logCfg;
@@ -946,10 +926,8 @@ window.beyond.onEvent((evt) => {
   }
 });
 
-// refresh stats every 60s
 setInterval(() => { if (!appEl.classList.contains("hidden")) window.beyond.refresh(); }, 60000);
 
-// try remembered token
 (async () => {
   const saved = await window.beyond.savedToken();
   if (saved) { $("#remember").checked = true; doLogin(saved, true, true); }

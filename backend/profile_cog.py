@@ -21,6 +21,8 @@ import re
 import urllib.request as _ur
 from typing import Optional
 
+import ansi
+
 from modifyself.commands.cog import Cog
 from modifyself.commands.core import command
 from modifyself.http.route import Route
@@ -208,14 +210,16 @@ class Profile(Cog):
     async def _run(self, ctx, field: str, value: str, label: str):
         value = (value or "").strip()
         if not value and field not in ("avatar", "banner"):
-            await self._reply(ctx, f"Usage: `{ctx.message.content.split()[0]} <{label}>`")
+            cmd = ctx.message.content.split()[0].lstrip(".")
+            await self._reply(ctx, ansi.command_usage(cmd, f"{cmd} <{label}>",
+                                                      f"Set your {label}.", "."))
             return
         result = await self.apply({field: value})
         _emit(await self.snapshot())
         if result.get("errors"):
-            await self._reply(ctx, "⚠️ " + "; ".join(result["errors"]))
+            await self._reply(ctx, ansi.error("; ".join(result["errors"])))
         else:
-            await self._reply(ctx, f"✅ {label.capitalize()} updated.")
+            await self._reply(ctx, ansi.success(f"{label.capitalize()} updated."))
 
     @command(name="setdisplayname", aliases=["setname", "setdisplay"])
     async def setdisplayname(self, ctx, *, value: str = ""):
@@ -246,15 +250,14 @@ class Profile(Cog):
         snap = await self.snapshot()
         p = snap["profile"]
         _emit(snap)
-        await self._reply(
-            ctx,
-            f"## {p['display_name'] or p['username']}\n"
-            f"-# @{p['username']}\n"
-            f"**Bio** {p['bio'] or '—'}\n"
-            f"**Pronouns** {p['pronouns'] or '—'}\n"
-            f"**Accent** {p['accent_hex'] or '—'}\n"
-            "-# `.setpfp` · `.setbanner` · `.setbio` · `.setpronouns` · `.setdisplayname` · `.setaccent`"
-        )
+        pairs = [
+            ("Name", p["display_name"] or p["username"]),
+            ("Handle", f"@{p['username']}"),
+            ("Bio", p["bio"] or "-"),
+            ("Pronouns", p["pronouns"] or "-"),
+            ("Accent", p["accent_hex"] or "-"),
+        ]
+        await self._reply(ctx, ansi.header("profile") + "\n" + ansi.command_list(pairs))
 
 def setup(bot):
     bot.add_cog(Profile(bot))

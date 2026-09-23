@@ -20,6 +20,8 @@ from __future__ import annotations
 import asyncio
 import time
 from collections import OrderedDict
+
+import ansi
 from typing import Optional
 
 from modifyself.commands.cog import Cog, listener
@@ -279,40 +281,41 @@ class MessageLogger(Cog):
         if sub in ("on", "enable"):
             self.apply_config({"enabled": True})
             _emit(self.state())
-            await reply("📥 Message logger **on**.")
+            await reply(ansi.success("Message logger on."))
         elif sub in ("off", "disable"):
             self.apply_config({"enabled": False})
             _emit(self.state())
-            await reply("📥 Message logger **off**.")
+            await reply(ansi.success("Message logger off."))
         elif sub == "add" and rest:
             self.add_keyword(rest)
             _emit(self.state())
-            await reply(f"Tracking keyword: **{rest}**")
+            await reply(ansi.success(f"Tracking keyword: {rest}"))
         elif sub in ("remove", "rm", "del") and rest:
             ok = self.remove_keyword(rest)
             _emit(self.state())
-            await reply(f"{'Removed' if ok else 'Not tracking'}: **{rest}**")
+            await reply((ansi.success if ok else ansi.error)(
+                f"{'Removed' if ok else 'Not tracking'}: {rest}"))
         elif sub in ("words", "keywords", "list"):
             kw = ", ".join(self.cfg["keywords"]) or "none"
-            await reply(f"**Keywords:** {kw}")
+            await reply(ansi.header("keywords") + "\n" + ansi.command_list([("Keywords", kw)]))
         elif sub == "mentions" and rest:
             self.apply_config({"mentions": rest.lower() in ("on", "true", "1", "yes")})
             _emit(self.state())
-            await reply(f"Mention logging **{'on' if self.cfg['mentions'] else 'off'}**.")
+            await reply(ansi.success(f"Mention logging {'on' if self.cfg['mentions'] else 'off'}."))
         elif sub == "deletes" and rest:
             self.apply_config({"deletes": rest.lower() in ("on", "true", "1", "yes")})
             _emit(self.state())
-            await reply(f"Delete logging **{'on' if self.cfg['deletes'] else 'off'}**.")
+            await reply(ansi.success(f"Delete logging {'on' if self.cfg['deletes'] else 'off'}."))
         elif sub == "edits" and rest:
             self.apply_config({"edits": rest.lower() in ("on", "true", "1", "yes")})
             _emit(self.state())
-            await reply(f"Edit logging **{'on' if self.cfg['edits'] else 'off'}**.")
+            await reply(ansi.success(f"Edit logging {'on' if self.cfg['edits'] else 'off'}."))
         elif sub == "scope":
             sargs = rest.split()
             mode = sargs[0].lower() if sargs else ""
             ident = sargs[1] if len(sargs) > 1 else ""
             if mode not in ("all", "dms", "guilds", "guild", "channel"):
-                await reply("scope: `all` · `dms` · `guilds` · `guild <id>` · `channel <id>`")
+                await reply(ansi.error("scope: all | dms | guilds | guild <id> | channel <id>"))
             else:
                 patch = {"scope": {"mode": mode}}
                 if mode == "guild":
@@ -321,18 +324,20 @@ class MessageLogger(Cog):
                     patch["scope"]["channel_id"] = ident
                 self.apply_config(patch)
                 _emit(self.state())
-                await reply(f"Scope set to **{mode}**{f' ({ident})' if ident else ''}.")
+                await reply(ansi.success(f"Scope set to {mode}{f' ({ident})' if ident else ''}."))
         else:
             sc = self.cfg["scope"]
             scope_txt = sc["mode"] + (f" ({sc.get('guild_id') or sc.get('channel_id')})"
                                       if sc["mode"] in ("guild", "channel") else "")
-            await reply(
-                "## 📥 Message Logger\n"
-                f"**Enabled** {self.cfg['enabled']}  ·  **Scope** {scope_txt}\n"
-                f"**Mentions** {self.cfg['mentions']}  ·  **Deletes** {self.cfg['deletes']}  ·  **Edits** {self.cfg['edits']}\n"
-                f"**Keywords** {', '.join(self.cfg['keywords']) or 'none'}\n"
-                "-# `.msglog on|off` · `add <w>` · `remove <w>` · `scope all|dms|guilds|guild <id>|channel <id>`"
-            )
+            pairs = [
+                ("Enabled", str(self.cfg["enabled"])),
+                ("Scope", scope_txt),
+                ("Mentions", str(self.cfg["mentions"])),
+                ("Deletes", str(self.cfg["deletes"])),
+                ("Edits", str(self.cfg["edits"])),
+                ("Keywords", ", ".join(self.cfg["keywords"]) or "none"),
+            ]
+            await reply(ansi.header("msglog") + "\n" + ansi.command_list(pairs))
 
 def setup(bot):
     bot.add_cog(MessageLogger(bot))

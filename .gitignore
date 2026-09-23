@@ -1,0 +1,7 @@
+node_modules/
+dist/
+beyond.config.json
+backend/agent_config.json
+backend/__pycache__/
+*.pyc
+*.log

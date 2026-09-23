@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Beyond</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ===== title bar ===== -->
+  <header class="titlebar">
+    <div class="tb-left">
+      <div class="tb-logo">B</div>
+      <span class="tb-title">Beyond</span>
+    </div>
+    <div class="tb-drag"></div>
+    <div class="tb-controls">
+      <button class="tb-btn" data-win="min" title="Minimize"><svg viewBox="0 0 12 12"><rect x="2" y="5.5" width="8" height="1"/></svg></button>
+      <button class="tb-btn" data-win="max" title="Maximize"><svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1"/></svg></button>
+      <button class="tb-btn tb-close" data-win="close" title="Close"><svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.2"/></svg></button>
+    </div>
+  </header>
+
+  <!-- ===== login ===== -->
+  <div id="login" class="login">
+    <div class="login-glow"></div>
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="login-mark">B</div>
+        <div>
+          <h1>Beyond</h1>
+          <p>Sign in with your Discord account token</p>
+        </div>
+      </div>
+      <label class="field">
+        <span>Account token</span>
+        <div class="field-input">
+          <input id="token" type="password" placeholder="Paste your token" spellcheck="false" autocomplete="off" />
+          <button id="reveal" class="ghost-icon" title="Show / hide" type="button">
+            <svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+          </button>
+        </div>
+      </label>
+      <label class="remember">
+        <input id="remember" type="checkbox" />
+        <span>Remember me on this device</span>
+      </label>
+      <button id="loginBtn" class="primary wide">Login</button>
+      <div id="loginError" class="login-error"></div>
+      <p class="login-note">Beyond runs as your account through the Python (modifyself) backend. Automating a user account breaks Discord's ToS and can get it banned — use an account you're willing to lose.</p>
+    </div>
+  </div>
+
+  <!-- ===== app ===== -->
+  <div id="app" class="app hidden">
+    <nav class="rail">
+      <button class="rail-btn active" data-tab="dashboard" title="Dashboard"><svg viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z"/></svg></button>
+      <button class="rail-btn" data-tab="rpc" title="Rich Presence"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="3"/></svg></button>
+      <button class="rail-btn" data-tab="commands" title="Commands"><svg viewBox="0 0 24 24"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="rail-btn" data-tab="config" title="Config"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      <button class="rail-btn" data-tab="spotify" title="Spotify Lyrics"><svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" fill="currentColor"/><circle cx="16" cy="16" r="3" fill="currentColor"/></svg></button>
+      <button class="rail-btn" data-tab="logger" title="Message Logger"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+      <button class="rail-btn" data-tab="profile" title="Profile"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 18c1-2.5 3-3.4 5-3.4s4 .9 5 3.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+      <button class="rail-btn" data-tab="history" title="History"><svg viewBox="0 0 24 24"><path d="M12 8v5l3 2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M4 4v4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="rail-spacer"></div>
+      <button class="rail-btn" data-tab="account" title="Account"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
+    </nav>
+
+    <main class="content">
+      <!-- ===================== DASHBOARD ===================== -->
+      <section class="page dashboard" data-page="dashboard">
+        <div class="col-left">
+          <h2 class="greeting">Hello, <span id="greetName" class="grad">…</span></h2>
+
+          <section class="card account">
+            <div class="acct-top">
+              <div class="avatar-wrap">
+                <img id="avatar" class="avatar" alt="" />
+                <span class="status-dot"></span>
+              </div>
+              <div class="acct-id">
+                <div class="badges" id="badges"></div>
+                <div id="username" class="acct-name">…</div>
+                <div id="handle" class="acct-handle">…</div>
+              </div>
+              <div class="acct-actions">
+                <button id="switchBtn" class="primary">Switch Account</button>
+                <button id="addBtn" class="soft">Add new</button>
+              </div>
+            </div>
+
+            <div class="acct-stats">
+              <div class="stat-block">
+                <div class="stat-label">User ID</div>
+                <div id="userId" class="stat-mono">…</div>
+                <div class="stat-label mt">Nitro status</div>
+                <div id="nitro" class="stat-value">…</div>
+              </div>
+              <div class="rings">
+                <div class="ring">
+                  <svg viewBox="0 0 120 120"><circle class="ring-bg" cx="60" cy="60" r="52"/><circle class="ring-fg" id="ringServers" cx="60" cy="60" r="52"/></svg>
+                  <div class="ring-center"><b id="serversVal">0</b><small>/100</small></div>
+                  <div class="ring-cap">SERVERS</div>
+                </div>
+                <div class="ring">
+                  <svg viewBox="0 0 120 120"><circle class="ring-bg" cx="60" cy="60" r="52"/><circle class="ring-fg" id="ringFriends" cx="60" cy="60" r="52"/></svg>
+                  <div class="ring-center"><b id="friendsVal">0</b><small>/1000</small></div>
+                  <div class="ring-cap">FRIENDS</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card meta">
+            <div class="meta-row">
+              <div class="chip"><span class="chip-ico"><svg viewBox="0 0 24 24"><path d="M12 2l3 6 6 .9-4.5 4.3 1 6.1L12 16.9 6.5 19.3l1-6.1L3 8.9 9 8z" fill="currentColor"/></svg></span> Version <b id="version">0.1.0</b></div>
+              <div class="chip"><span class="chip-ico"><svg viewBox="0 0 24 24"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13 5l-2 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Commands used <b id="cmds">0</b></div>
+              <div class="toggle-row"><span>Enable <b>Discoverable</b></span><label class="switch"><input id="tglDiscoverable" type="checkbox" checked><span></span></label></div>
+            </div>
+            <div class="meta-row">
+              <div class="uptime">
+                <div class="uptime-cap"><span class="chip-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 9v4l3 2M9 2h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span> Uptime</div>
+                <div class="uptime-grid">
+                  <div><b id="upDD">00</b><small>DD</small></div>
+                  <div><b id="upHH">00</b><small>HH</small></div>
+                  <div><b id="upMM">00</b><small>MM</small></div>
+                  <div><b id="upSS">00</b><small>SS</small></div>
+                </div>
+              </div>
+              <div class="toggle-row"><span>Enable <b>Private Mode</b></span><label class="switch"><input id="tglPrivate" type="checkbox"><span></span></label></div>
+            </div>
+          </section>
+
+          <section class="card botcard">
+            <div class="bot-head">
+              <div class="bot-title">Slash bot <span class="bot-sub">— <code>/</code> commands · ephemeral when Private Mode is on</span></div>
+              <span id="botDot" class="bot-dot off"></span>
+            </div>
+            <div class="bot-row">
+              <input id="botApp" class="bot-input" type="text" placeholder="Application (client) ID" spellcheck="false" autocomplete="off" />
+              <input id="botToken" class="bot-input" type="password" placeholder="Bot token" spellcheck="false" autocomplete="off" />
+              <button id="botConnect" class="primary">Connect</button>
+            </div>
+            <div class="bot-row">
+              <input id="botGuild" class="bot-input" type="text" placeholder="Server ID for instant sync (optional)" spellcheck="false" autocomplete="off" />
+            </div>
+            <div id="botStatus" class="bot-status">Not connected. Add a real bot to run <code>/</code> commands (needed for true ephemeral).</div>
+          </section>
+        </div>
+
+        <aside class="card notif">
+          <div class="notif-head">
+            <div class="notif-title">
+              <svg class="bell" viewBox="0 0 24 24"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M10 20a2 2 0 004 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              Notification Center
+            </div>
+            <button id="clearNotif" class="ghost-icon" title="Clear all">
+              <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 12h10l1-12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+          <div id="notifList" class="notif-list"></div>
+        </aside>
+      </section>
+
+      <!-- ===================== RPC ===================== -->
+      <section class="page hidden" data-page="rpc">
+        <h2 class="page-title">Rich Presence</h2>
+        <div class="rpc-grid">
+          <section class="card rpc-editor">
+            <div class="rpc-field">
+              <label>Activity type</label>
+              <select id="rpcType" class="bot-input">
+                <option value="playing">Playing</option>
+                <option value="listening">Listening</option>
+                <option value="watching">Watching</option>
+                <option value="streaming">Streaming</option>
+                <option value="competing">Competing</option>
+                <option value="spotify">Spotify</option>
+                <option value="youtube">YouTube</option>
+                <option value="crunchyroll">Crunchyroll</option>
+                <option value="xbox">Xbox</option>
+                <option value="playstation">PlayStation</option>
+                <option value="vrchat">VRChat (spoof)</option>
+                <option value="custom">Custom</option>
+                <option value="custom_status">Custom Status</option>
+              </select>
+            </div>
+
+            <div class="rpc-two">
+              <div class="rpc-field"><label>Name</label><input id="rpcName" class="bot-input" placeholder="Beyond"></div>
+              <div class="rpc-field" data-only="text"><label>Status text</label><input id="rpcText" class="bot-input" placeholder="doing stuff…"></div>
+            </div>
+            <div class="rpc-two" data-hide="text">
+              <div class="rpc-field"><label>Details (line 1)</label><input id="rpcDetails" class="bot-input" placeholder="Editing main.py"></div>
+              <div class="rpc-field"><label>State (line 2)</label><input id="rpcState" class="bot-input" placeholder="Workspace: Beyond"></div>
+            </div>
+
+            <div class="rpc-two" data-hide="text">
+              <div class="rpc-field"><label>Large image URL</label><input id="rpcLargeImg" class="bot-input" placeholder="https://… or Discord CDN link"></div>
+              <div class="rpc-field"><label>Large image text</label><input id="rpcLargeTxt" class="bot-input" placeholder="hover text"></div>
+            </div>
+            <div class="rpc-two" data-hide="text">
+              <div class="rpc-field"><label>Small image URL</label><input id="rpcSmallImg" class="bot-input" placeholder="optional"></div>
+              <div class="rpc-field"><label>Small image text</label><input id="rpcSmallTxt" class="bot-input" placeholder="hover text"></div>
+            </div>
+
+            <div class="rpc-two" data-hide="text">
+              <div class="rpc-field"><label>Elapsed (minutes)</label><input id="rpcElapsed" class="bot-input" type="number" min="0" step="0.1" placeholder="0"></div>
+              <div class="rpc-field"><label>Total (minutes)</label><input id="rpcTotal" class="bot-input" type="number" min="0" step="0.1" placeholder="blank = count up"></div>
+            </div>
+
+            <div class="rpc-two" data-only="streaming">
+              <div class="rpc-field"><label>Stream URL (twitch/yt)</label><input id="rpcStream" class="bot-input" placeholder="https://twitch.tv/…"></div>
+            </div>
+
+            <div class="rpc-two" data-hide="text">
+              <div class="rpc-field"><label>Button 1 label</label><input id="rpcBtn1" class="bot-input" placeholder="Visit"></div>
+              <div class="rpc-field"><label>Button 1 URL</label><input id="rpcBtn1Url" class="bot-input" placeholder="https://…"></div>
+            </div>
+            <div class="rpc-two" data-hide="text">
+              <div class="rpc-field"><label>Button 2 label</label><input id="rpcBtn2" class="bot-input" placeholder="optional"></div>
+              <div class="rpc-field"><label>Button 2 URL</label><input id="rpcBtn2Url" class="bot-input" placeholder="https://…"></div>
+            </div>
+
+            <div class="rpc-field" data-only="text">
+              <label>Emoji (optional, unicode)</label><input id="rpcEmoji" class="bot-input" placeholder="🔥">
+            </div>
+
+            <div class="rpc-actions">
+              <button id="rpcApply" class="primary">Apply presence</button>
+              <button id="rpcClear" class="soft">Clear</button>
+            </div>
+          </section>
+
+          <aside class="rpc-side">
+            <div class="card rpc-preview-wrap">
+              <div class="rpc-preview-cap">Live preview <span class="cap-hint">— click any part to edit it</span></div>
+              <div class="rpc-card" id="rpcCard">
+                <div class="rpc-kind" id="pvKind">PLAYING A GAME</div>
+                <div class="rpc-body">
+                  <div class="rpc-art">
+                    <img id="pvLarge" class="rpc-large" alt="" data-focus="rpcLargeImg" title="Click to set large image" />
+                    <div id="pvLargePlaceholder" class="rpc-large rpc-ph" data-focus="rpcLargeImg" title="Click to set large image">+</div>
+                    <img id="pvSmall" class="rpc-small hidden" alt="" data-focus="rpcSmallImg" title="Click to set small image" />
+                  </div>
+                  <div class="rpc-lines">
+                    <div class="rpc-name pv-edit" id="pvName" contenteditable="true" data-field="name" data-ph="Name"></div>
+                    <div class="rpc-detail pv-edit" id="pvDetail" contenteditable="true" data-field="details" data-ph="Details (line 1)"></div>
+                    <div class="rpc-state pv-edit" id="pvState" contenteditable="true" data-field="state" data-ph="State (line 2)"></div>
+                    <div class="rpc-time" id="pvTime" data-focus="rpcElapsed" title="Click to set elapsed / total"></div>
+                  </div>
+                </div>
+                <div class="rpc-btns" id="pvButtons"></div>
+              </div>
+            </div>
+
+            <div class="card rpc-status-card">
+              <div class="rpc-preview-cap">Presence status</div>
+              <div class="status-row" id="statusRow">
+                <button class="status-pill active" data-status="online"><i class="sd online"></i>Online</button>
+                <button class="status-pill" data-status="idle"><i class="sd idle"></i>Idle</button>
+                <button class="status-pill" data-status="dnd"><i class="sd dnd"></i>Do Not Disturb</button>
+                <button class="status-pill" data-status="invisible"><i class="sd invisible"></i>Invisible</button>
+              </div>
+              <div id="rpcActive" class="rpc-active-note">No presence active.</div>
+            </div>
+
+            <div class="card rpc-status-card">
+              <div class="rpc-preview-cap">Image upload channel</div>
+              <input id="rpcAssetCh" class="bot-input" type="text" placeholder="Channel ID you can post in (blank = auto)" spellcheck="false" autocomplete="off" />
+              <div class="rpc-active-note">Non-Discord image URLs are uploaded here, then deleted. Leave blank to auto-pick a channel in a server you own.</div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ===================== COMMANDS ===================== -->
+      <section class="page hidden" data-page="commands">
+        <h2 class="page-title">Commands</h2>
+        <div class="cmd-note">Every command works on both bots — type <code>.</code> for the selfbot (your account) or <code>/</code> for the slash bot. With <b>Private Mode</b> on, <code>/</code> replies are ephemeral.</div>
+        <div class="cmd-grid" id="cmdGrid"></div>
+      </section>
+
+      <!-- ===================== CONFIG ===================== -->
+      <section class="page hidden" data-page="config">
+        <h2 class="page-title">Config</h2>
+        <section class="card cfg-card">
+          <div class="cfg-row"><div><b>Private Mode</b><p>Auto-delete <code>.</code> replies · ephemeral <code>/</code> replies.</p></div>
+            <label class="switch"><input id="tglPrivate2" type="checkbox"><span></span></label></div>
+          <div class="cfg-row"><div><b>Discoverable</b><p>Advertise presence features.</p></div>
+            <label class="switch"><input id="tglDiscoverable2" type="checkbox" checked><span></span></label></div>
+          <div class="cfg-row"><div><b>Command prefix</b><p>Set via <code>BEYOND_PREFIX</code> env var (default <code>.</code>).</p></div>
+            <code class="cfg-mono" id="cfgPrefix">.</code></div>
+          <div class="cfg-row"><div><b>Backend</b><p>Python + modifyself · discord.py for the slash bot.</p></div>
+            <code class="cfg-mono" id="cfgVer">—</code></div>
+        </section>
+      </section>
+
+      <!-- ===================== SPOTIFY LYRICS ===================== -->
+      <section class="page hidden" data-page="spotify">
+        <div class="sp-titlebar">
+          <h2 class="page-title" style="margin:0">Spotify Lyrics</h2>
+          <div class="sp-controls">
+            <span class="sp-hint">Lyrics sync to your Discord status while on</span>
+            <label class="switch sp-switch"><input id="spToggle" type="checkbox"><span></span></label>
+          </div>
+        </div>
+        <div class="sp-wrap">
+          <section class="card sp-now" id="spNow">
+            <div class="sp-idle" id="spIdle">Turn it on and start playing on Spotify.</div>
+            <div class="sp-player hidden" id="spPlayer">
+              <div class="sp-cover-wrap">
+                <img id="spCover" class="sp-cover" alt="" />
+                <div class="sp-eq" id="spEq"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+              </div>
+              <div class="sp-info">
+                <div id="spTitle" class="sp-title">—</div>
+                <div id="spArtist" class="sp-artist">—</div>
+                <div id="spAlbum" class="sp-album">—</div>
+                <div class="sp-progress">
+                  <span id="spCur" class="sp-time">0:00</span>
+                  <div class="sp-bar"><div id="spBarFill" class="sp-bar-fill"></div></div>
+                  <span id="spDur" class="sp-time">0:00</span>
+                </div>
+                <div id="spSource" class="sp-source"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card sp-lyrics-card">
+            <div class="sp-lyrics-cap">Lyrics</div>
+            <div id="spLyrics" class="sp-lyrics"><div class="sp-noly">No lyrics yet.</div></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ===================== MESSAGE LOGGER ===================== -->
+      <section class="page hidden" data-page="logger">
+        <div class="sp-titlebar">
+          <h2 class="page-title" style="margin:0">Message Logger</h2>
+          <div class="sp-controls">
+            <span class="sp-hint">Watches your gateway for keywords, pings, deletes &amp; edits</span>
+            <label class="switch sp-switch"><input id="logToggle" type="checkbox"><span></span></label>
+          </div>
+        </div>
+        <div class="log-wrap">
+          <section class="card log-config">
+            <div class="log-cap">Tracking</div>
+            <div class="rpc-field">
+              <label>Add a keyword or phrase</label>
+              <div class="log-add-row">
+                <input id="logKwInput" class="bot-input" placeholder="e.g. giveaway, my name, drop…" spellcheck="false" autocomplete="off" />
+                <button id="logKwAdd" class="primary">Add</button>
+              </div>
+            </div>
+            <div id="logKwList" class="log-kw-list"><span class="log-empty">No keywords yet.</span></div>
+
+            <div class="log-cap mt">What to log</div>
+            <label class="log-check"><input id="logMentions" type="checkbox" checked><span>Mentions (when you get pinged)</span></label>
+            <label class="log-check"><input id="logDeletes" type="checkbox" checked><span>Deleted messages</span></label>
+            <label class="log-check"><input id="logEdits" type="checkbox" checked><span>Edited messages</span></label>
+            <label class="log-check"><input id="logIgnoreSelf" type="checkbox" checked><span>Ignore my own messages</span></label>
+
+            <div class="log-cap mt">Scope</div>
+            <div class="rpc-field">
+              <label>Where to watch</label>
+              <select id="logScope" class="bot-input">
+                <option value="all">Everywhere</option>
+                <option value="dms">DMs only</option>
+                <option value="guilds">All servers</option>
+                <option value="guild">A specific server</option>
+                <option value="channel">A specific channel</option>
+              </select>
+            </div>
+            <div class="rpc-field hidden" id="logScopeIdWrap">
+              <label id="logScopeIdLabel">Server ID</label>
+              <input id="logScopeId" class="bot-input" placeholder="paste the ID" spellcheck="false" autocomplete="off" />
+            </div>
+            <button id="logScopeApply" class="soft">Apply scope</button>
+          </section>
+
+          <section class="card log-feed-card">
+            <div class="log-feed-head">
+              <div class="log-cap" style="margin:0">Live feed</div>
+              <div class="log-feed-tools">
+                <select id="logFilter" class="bot-input log-filter">
+                  <option value="all">All</option>
+                  <option value="mention">Mentions</option>
+                  <option value="keyword">Keywords</option>
+                  <option value="delete">Deletes</option>
+                  <option value="edit">Edits</option>
+                </select>
+                <button id="logClear" class="ghost-icon" title="Clear feed">
+                  <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 12h10l1-12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+              </div>
+            </div>
+            <div id="logFeed" class="log-feed"><div class="log-empty">Turn the logger on — matches appear here in real time.</div></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ===================== PROFILE ===================== -->
+      <section class="page hidden" data-page="profile">
+        <h2 class="page-title">Profile</h2>
+        <div class="prof-wrap">
+          <section class="card prof-editor">
+            <div class="log-cap">Edit profile</div>
+            <div class="rpc-two">
+              <div class="rpc-field"><label>Display name</label><input id="profDisplay" class="bot-input" placeholder="Your display name" maxlength="32"></div>
+              <div class="rpc-field"><label>Pronouns</label><input id="profPronouns" class="bot-input" placeholder="they/them" maxlength="40"></div>
+            </div>
+            <div class="rpc-field"><label>About me (bio)</label><textarea id="profBio" class="bot-input prof-bio" rows="4" maxlength="190" placeholder="Say something…"></textarea></div>
+            <div class="rpc-two">
+              <div class="rpc-field"><label>Avatar image URL</label><input id="profAvatar" class="bot-input" placeholder="https://… (blank = leave, 'remove' = clear)"></div>
+              <div class="rpc-field"><label>Banner image URL</label><input id="profBanner" class="bot-input" placeholder="https://… (blank = leave, 'remove' = clear)"></div>
+            </div>
+            <div class="rpc-two">
+              <div class="rpc-field"><label>Accent colour</label><input id="profAccent" class="bot-input" placeholder="#5b8cff"></div>
+              <div class="rpc-field prof-accent-preview"><label>&nbsp;</label><input id="profAccentColor" type="color" value="#5b8cff" class="prof-color"></div>
+            </div>
+            <div class="rpc-actions">
+              <button id="profApply" class="primary">Save profile</button>
+              <button id="profReload" class="soft">Reload</button>
+            </div>
+            <div class="log-note">Edits your real account through Discord's profile endpoints. Nitro is required for an animated avatar/banner and profile banner.</div>
+          </section>
+
+          <aside class="card prof-preview">
+            <div class="log-cap">Preview</div>
+            <div class="prof-card">
+              <div id="pfBanner" class="pf-banner"></div>
+              <div class="pf-av-wrap"><img id="pfAvatar" class="pf-avatar" alt=""></div>
+              <div class="pf-body">
+                <div id="pfDisplay" class="pf-display">—</div>
+                <div id="pfHandle" class="pf-handle">—</div>
+                <div id="pfPronouns" class="pf-pronouns"></div>
+                <div class="pf-divider"></div>
+                <div class="pf-sub">ABOUT ME</div>
+                <div id="pfBio" class="pf-bio">—</div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ===================== HISTORY ===================== -->
+      <section class="page hidden" data-page="history">
+        <h2 class="page-title">History</h2>
+        <section class="card admin-conn">
+          <div class="rpc-two">
+            <div class="rpc-field"><label>Base URL</label><input id="admBase" class="bot-input" placeholder="https://your-api-host" spellcheck="false" autocomplete="off" /></div>
+            <div class="rpc-field"><label>API key (X-API-Key)</label><input id="admKey" class="bot-input" type="password" placeholder="lak_…" spellcheck="false" autocomplete="off" /></div>
+          </div>
+          <div class="admin-actions">
+            <button id="admSave" class="soft">Save</button>
+            <button id="admStats" class="primary">Load stats</button>
+            <span id="admConnDot" class="bot-dot off"></span>
+          </div>
+        </section>
+
+        <section class="card admin-query">
+          <div class="admin-row">
+            <div class="rpc-field">
+              <label>Endpoint</label>
+              <select id="admEndpoint" class="bot-input">
+                <option value="stats">Stats — /v1/stats</option>
+                <option value="profile">User · profile history — /v1/user/{id}/profile</option>
+                <option value="profile_latest">User · latest profile — /v1/user/{id}/profile/latest</option>
+                <option value="messages">User · messages — /v1/user/{id}/messages</option>
+                <option value="voice">User · voice — /v1/user/{id}/voice</option>
+                <option value="reactions">User · reactions — /v1/user/{id}/reactions</option>
+                <option value="guild_events">Guild · events — /v1/guild/{id}/events</option>
+                <option value="search">Search profiles — /v1/search/profile</option>
+              </select>
+            </div>
+          </div>
+          <div class="admin-params" id="admParams"></div>
+          <div class="admin-row admin-page-row">
+            <div class="rpc-field small"><label>Limit</label><input id="admLimit" class="bot-input" type="number" min="1" value="50" /></div>
+            <div class="rpc-field small"><label>Page</label><input id="admPage" class="bot-input" type="number" min="1" value="1" /></div>
+            <button id="admRun" class="primary">Fetch</button>
+            <div class="admin-nav">
+              <button id="admPrev" class="soft">‹ Prev</button>
+              <button id="admNext" class="soft">Next ›</button>
+            </div>
+          </div>
+        </section>
+
+        <div id="admResultMeta" class="admin-meta"></div>
+        <div id="admResults" class="admin-results"></div>
+      </section>
+
+      <!-- ===================== ACCOUNT ===================== -->
+      <section class="page hidden" data-page="account">
+        <h2 class="page-title">Account</h2>
+        <section class="card acc-card">
+          <div class="acct-top">
+            <div class="avatar-wrap"><img id="avatar2" class="avatar" alt="" /><span class="status-dot"></span></div>
+            <div class="acct-id">
+              <div id="username2" class="acct-name">…</div>
+              <div id="handle2" class="acct-handle">…</div>
+              <div class="stat-label mt">User ID</div>
+              <div id="userId2" class="stat-mono">…</div>
+            </div>
+          </div>
+          <div class="acc-actions">
+            <button id="switchBtn2" class="primary">Switch Account</button>
+            <button id="refreshBtn" class="soft">Refresh stats</button>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

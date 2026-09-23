@@ -1,0 +1,18 @@
+{
+  "name": "beyond",
+  "productName": "Beyond",
+  "version": "0.1.0",
+  "description": "Beyond — a Discord selfbot control panel.",
+  "main": "main.js",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "agent": "python3 backend/beyond_agent.py",
+    "agent:win": "python backend/beyond_agent.py"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0"
+  }
+}

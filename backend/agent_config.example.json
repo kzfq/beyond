@@ -1,0 +1,8 @@
+{
+  "relay_base": "https://agent.selfbot.fyi",
+  "viewer_base": "https://selfbot.fyi",
+  "enroll_key": "PASTE_THE_RELAY_ENROLL_KEY_HERE",
+  "slug": "",
+  "agent_secret": "",
+  "viewer_password": ""
+}

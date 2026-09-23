@@ -87,7 +87,7 @@ def help_lines():
     ]
 
 def help_text() -> str:
-    out = ["## ⬜ Beyond", "-# selfbot + slash · v0.1.0"]
+    out = ["## Beyond", "-# selfbot + slash · v0.1.0"]
     for title, body in help_lines():
         out.append(f"**{title}**\n{body}")
     return "\n".join(out)
@@ -414,7 +414,7 @@ def build_redirect_view(discord):
     try:
         view = ui.LayoutView()
         c = ui.Container(accent_colour=discord.Colour(ACCENT))
-        c.add_item(ui.TextDisplay("## ⬜  Beyond"))
+        c.add_item(ui.TextDisplay("## Beyond"))
         c.add_item(ui.TextDisplay("This panel belongs to someone else — but Beyond is "
                                   "free and open source. Grab your own:"))
         c.add_item(ui.Separator())

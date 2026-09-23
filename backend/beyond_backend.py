@@ -79,25 +79,93 @@ def help_text() -> str:
 def ping_text(latency_s) -> str:
     return f"Pong — **{round((latency_s or 0) * 1000)}ms**"
 
-def ansi_help() -> str:
-    cmds = [
-        ("help", "this menu"),
-        ("ping", "gateway latency"),
-        ("stats", "account stats"),
-        ("rpc", "rich presence — rpc <type>"),
-        ("status", "online / idle / dnd / invisible"),
-        ("platform", "spoof platform"),
-        ("multiplatform", "spoof multiple platforms"),
-        ("msglog", "message logger"),
-        ("setpfp", "set avatar"),
-        ("setbanner", "set banner"),
-        ("setbio", "set about me"),
-        ("setpronouns", "set pronouns"),
-        ("setdisplayname", "set display name"),
-        ("setaccent", "set accent colour"),
-        ("profile", "show your profile"),
-    ]
-    return ansi.header("help") + "\n" + ansi.command_list(cmds) + "\n" + ansi.footer_main()
+HELP_PER_PAGE = 6
+
+HELP = {
+    "core": {
+        "desc": "Core / info",
+        "cmds": [
+            ("help", "help [category|command] [page]", "Show categories, a category's commands, or info on one command."),
+            ("ping", "ping", "Show the gateway latency."),
+            ("stats", "stats", "Show your account stats."),
+        ],
+    },
+    "presence": {
+        "desc": "Rich presence (RPC)",
+        "cmds": [
+            ("rpc", "rpc <type> ...", "Set your rich presence (playing/spotify/vrchat/...)."),
+            ("status", "status <online|idle|dnd|invisible>", "Set your online status."),
+            ("platform", "platform <vr|phone|desktop>", "Spoof the platform you appear on."),
+            ("multiplatform", "multiplatform <a> <b> ...", "Appear online on several platforms at once."),
+        ],
+    },
+    "logger": {
+        "desc": "Message logger",
+        "cmds": [
+            ("msglog", "msglog <on|off|add|remove|scope|status>", "Track keywords/mentions and log deleted & edited messages."),
+        ],
+    },
+    "profile": {
+        "desc": "Profile editing",
+        "cmds": [
+            ("setpfp", "setpfp <url|remove>", "Set (or clear) your avatar from an image URL."),
+            ("setbanner", "setbanner <url|remove>", "Set (or clear) your profile banner."),
+            ("setbio", "setbio <text>", "Set your About Me."),
+            ("setpronouns", "setpronouns <text>", "Set your pronouns."),
+            ("setdisplayname", "setdisplayname <name>", "Set your display name."),
+            ("setaccent", "setaccent <#hex>", "Set your profile accent colour."),
+            ("profile", "profile", "Show your current profile."),
+        ],
+    },
+}
+
+HELP_ALIASES = {
+    "cmds": "help", "commands": "help",
+    "logger": "msglog", "mlog": "msglog",
+    "setname": "setdisplayname", "setdisplay": "setdisplayname",
+    "setabout": "setbio", "setcolor": "setaccent", "setcolour": "setaccent",
+    "setavatar": "setpfp", "myprofile": "profile",
+}
+
+def _help_index() -> dict:
+    idx = {}
+    for cat, info in HELP.items():
+        for name, usage, desc in info["cmds"]:
+            idx[name] = (cat, usage, desc)
+    return idx
+
+def help_router(value: str, prefix: str) -> str:
+    toks = (value or "").split()
+    idx = _help_index()
+
+    if not toks:
+        cats = {name: info["desc"] for name, info in HELP.items()}
+        hint = f"{ansi.DARK}{prefix}help <category>  ·  {prefix}help <command>{ansi.RESET}"
+        return (ansi.header("help") + "\n" + ansi.category_list(cats) + "\n"
+                + ansi._block(hint))
+
+    key = HELP_ALIASES.get(toks[0].lower(), toks[0].lower())
+
+    # category wins over a same-named command (e.g. "profile"), so
+    # `.help profile` pages the category; `.help <command>` shows one command.
+    if key in HELP:
+        clist = HELP[key]["cmds"]
+        total = max(1, (len(clist) + HELP_PER_PAGE - 1) // HELP_PER_PAGE)
+        try:
+            page = int(toks[1]) if len(toks) > 1 else 1
+        except Exception:
+            page = 1
+        page = max(1, min(page, total))
+        chunk = clist[(page - 1) * HELP_PER_PAGE: page * HELP_PER_PAGE]
+        pairs = [(n, d) for (n, u, d) in chunk]
+        return (ansi.header(key) + "\n" + ansi.command_list(pairs) + "\n"
+                + ansi.footer_page(prefix, key, page, total))
+
+    if key in idx:
+        _, usage, desc = idx[key]
+        return ansi.command_usage(key, usage, desc, prefix)
+
+    return ansi.error(f"No category or command called '{toks[0]}'. Try {prefix}help")
 
 def ansi_ping(latency_s) -> str:
     ms = round((latency_s or 0) * 1000)
@@ -277,8 +345,8 @@ async def _respond(ctx, text):
 
 def register_commands(bot):
     @bot.command(name="help", aliases=["cmds", "commands"])
-    async def _help(ctx):
-        await _respond(ctx, ansi_help())
+    async def _help(ctx, *, value: str = ""):
+        await _respond(ctx, help_router(value, PREFIX))
 
     @bot.command(name="ping")
     async def _ping(ctx):

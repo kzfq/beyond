@@ -260,23 +260,8 @@ class MessageLogger(Cog):
 
         async def reply(text):
             _emit({"type": "command"})
-            try:
-                await ctx.message.delete()
-            except Exception:
-                pass
-            m = None
-            try:
-                m = await ctx.send(text)
-            except Exception:
-                return
-            if m is not None:
-                async def _cleanup():
-                    await asyncio.sleep(15)
-                    try:
-                        await m.delete()
-                    except Exception:
-                        pass
-                asyncio.create_task(_cleanup())
+            import ascii_helper
+            await ascii_helper.send_temp(ctx, text, 15)
 
         if sub in ("on", "enable"):
             self.apply_config({"enabled": True})

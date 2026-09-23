@@ -327,25 +327,8 @@ REPLY_TTL = 15  # seconds a selfbot reply stays before self-deleting
 
 async def _respond(ctx, text):
     emit({"type": "command"})
-    # delete the invoking command message immediately (clean channel)
-    try:
-        await ctx.message.delete()
-    except Exception:
-        pass
-    try:
-        m = await ctx.send(text)
-    except Exception as e:
-        log(f"send failed: {e}")
-        return
-    # self-delete the reply after REPLY_TTL
-    if m is not None:
-        async def _cleanup():
-            await asyncio.sleep(REPLY_TTL)
-            try:
-                await m.delete()
-            except Exception:
-                pass
-        asyncio.create_task(_cleanup())
+    import ascii_helper
+    await ascii_helper.send_temp(ctx, text, REPLY_TTL)
 
 def register_commands(bot):
     @bot.command(name="help", aliases=["cmds", "commands"])

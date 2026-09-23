@@ -8,8 +8,13 @@ import asyncio
 
 import ansi
 
+# keep strong refs to pending delete tasks so the event loop can't GC them
+# before they fire (an unreferenced asyncio task may be collected mid-sleep).
+_TASKS = set()
 
-async def _send_and_expire(ctx, text, delay):
+
+async def _send_and_expire(ctx, text, delay=15):
+    # delete the invoking command message immediately
     try:
         await ctx.message.delete()
     except Exception:
@@ -23,12 +28,20 @@ async def _send_and_expire(ctx, text, delay):
         return
 
     async def _rm():
-        await asyncio.sleep(max(1, int(delay or 15)))
         try:
+            await asyncio.sleep(max(1, int(delay or 15)))
             await m.delete()
         except Exception:
             pass
-    asyncio.create_task(_rm())
+
+    t = asyncio.create_task(_rm())
+    _TASKS.add(t)
+    t.add_done_callback(_TASKS.discard)
+
+
+# single entry point every selfbot reply path uses
+async def send_temp(ctx, text, delay=15):
+    await _send_and_expire(ctx, text, delay)
 
 
 class ASCIIMixin:

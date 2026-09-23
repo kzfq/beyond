@@ -19,6 +19,7 @@ stdio protocol (newline JSON):
 import asyncio
 import json
 import os
+import secrets
 import sys
 import traceback
 
@@ -53,6 +54,7 @@ BOT_HELP = {
 CFG = {"private": False, "discoverable": True}
 LAST_STATS = {}
 OWNER_ID = None
+_ACTIVE_ID = None  # id of the currently-active saved account
 BADGE_BITS = [1 << 0, 1 << 1, 1 << 2, 1 << 6, 1 << 7, 1 << 8, 1 << 9,
               1 << 3, 1 << 14, 1 << 17, 1 << 18, 1 << 22]
 
@@ -973,9 +975,107 @@ async def apply_discoverable(on: bool) -> None:
     except Exception as e:
         log(f"discoverable apply failed: {e}\n" + traceback.format_exc())
 
+# --------------------------------------------------------------------------
+# multi-account: store several tokens, switch the active one (one live at a time)
+# tokens live in persistence on THIS machine only (same as single-account login)
+# --------------------------------------------------------------------------
+def _load_accounts() -> list:
+    try:
+        import persistence
+        a = persistence.get("accounts", [])
+        return a if isinstance(a, list) else []
+    except Exception:
+        return []
+
+def _save_accounts(accts: list) -> None:
+    try:
+        import persistence
+        persistence.set_key("accounts", accts)
+    except Exception:
+        pass
+
+def accounts_state() -> dict:
+    return {
+        "type": "accounts_state",
+        "active_id": _ACTIVE_ID,
+        "accounts": [
+            {"id": a.get("id"), "username": a.get("username", ""),
+             "globalName": a.get("globalName", ""), "avatarUrl": a.get("avatarUrl", ""),
+             "discord_id": a.get("discord_id", "")}
+            for a in _load_accounts()
+        ],
+    }
+
+def _upsert_account(token: str, stats: dict, make_active: bool = True) -> dict:
+    global _ACTIVE_ID
+    accts = _load_accounts()
+    did = str(stats.get("id", ""))
+    rec = None
+    for a in accts:
+        if (did and a.get("discord_id") == did) or a.get("token") == token:
+            rec = a
+            break
+    if rec is None:
+        rec = {"id": secrets.token_hex(6), "token": token}
+        accts.append(rec)
+    rec["token"] = token
+    rec["discord_id"] = did
+    rec["username"] = stats.get("username", "")
+    rec["globalName"] = stats.get("globalName", "")
+    rec["avatarUrl"] = stats.get("avatarUrl", "")
+    _save_accounts(accts)
+    if make_active:
+        _ACTIVE_ID = rec["id"]
+    return rec
+
+async def _teardown_bot() -> None:
+    global _bot, _bot_task, _rpc_cog, _spotify_cog, _logger_cog, _profile_cog
+    if _bot_task is not None:
+        try:
+            _bot_task.cancel()
+        except Exception:
+            pass
+        _bot_task = None
+    if _bot is not None:
+        try:
+            await _bot.close()
+        except Exception:
+            pass
+    _bot = None
+    _rpc_cog = None
+    _spotify_cog = None
+    _logger_cog = None
+    _profile_cog = None
+
+async def _switch_to_token(token: str) -> None:
+    """Tear down the current account and log in with another (one active at a time)."""
+    await _teardown_bot()
+    await handle({"cmd": "login", "token": token}, {})
+
+async def _account_remove(aid: str) -> None:
+    global _ACTIVE_ID, OWNER_ID
+    accts = _load_accounts()
+    if not any(a.get("id") == aid for a in accts):
+        emit(accounts_state())
+        return
+    was_active = (_ACTIVE_ID == aid)
+    accts = [a for a in accts if a.get("id") != aid]
+    _save_accounts(accts)
+    if was_active:
+        if accts:
+            _ACTIVE_ID = accts[0]["id"]
+            await _switch_to_token(accts[0]["token"])
+        else:
+            _ACTIVE_ID = None
+            await _teardown_bot()
+            OWNER_ID = None
+            emit({"type": "logged_out"})
+    emit(accounts_state())
+
+
 async def handle(cmd: dict, state: dict):
     global _bot, _bot_task, _rpc_cog, _realbot_task, OWNER_ID, _bot_app_id, _userapp_watch_task, _spotify_cog
-    global _logger_cog, _profile_cog
+    global _logger_cog, _profile_cog, _ACTIVE_ID
     c = cmd.get("cmd")
 
     if c == "login":
@@ -1057,6 +1157,36 @@ async def handle(cmd: dict, state: dict):
         if _bot_task is None:
             _bot_task = asyncio.create_task(run_selfbot(_bot))
 
+        # record/refresh this account in the saved list + tell the UI
+        try:
+            _upsert_account(token, stats, make_active=True)
+            emit(accounts_state())
+        except Exception:
+            pass
+
+    elif c == "account":
+        action = cmd.get("action") or "list"
+        if action == "list":
+            emit(accounts_state())
+        elif action == "add":
+            tok = (cmd.get("token") or "").strip()
+            if not tok:
+                emit({"type": "notif", "kind": "warn", "msg": "No token provided."})
+            else:
+                await _switch_to_token(tok)  # log into the new account (added on ready)
+        elif action == "switch":
+            aid = cmd.get("id")
+            rec = next((a for a in _load_accounts() if a.get("id") == aid), None)
+            if not rec:
+                emit({"type": "notif", "kind": "warn", "msg": "Account not found."})
+            elif aid == _ACTIVE_ID and _bot is not None:
+                emit(accounts_state())  # already active
+            else:
+                _ACTIVE_ID = aid
+                await _switch_to_token(rec["token"])
+        elif action == "remove":
+            await _account_remove(cmd.get("id"))
+
     elif c in ("refresh", "snapshot"):
 
         if _bot is not None:
@@ -1066,6 +1196,10 @@ async def handle(cmd: dict, state: dict):
                 emit({"type": "stats", "data": stats})
             except Exception as e:
                 log(f"refresh failed: {e}")
+            try:
+                emit(accounts_state())
+            except Exception:
+                pass
             if _logger_cog is not None:
                 try:
                     emit(_logger_cog.state())

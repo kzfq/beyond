@@ -154,7 +154,31 @@ body {
   box-shadow: 0 12px 40px rgba(0,0,0,0.28);
 }
 
-.account { padding: 22px; }
+.account { padding: 22px; position: relative; }
+
+/* ===== account switcher ===== */
+.acct-switcher {
+  position: absolute; top: 70px; right: 22px; z-index: 30; width: 300px;
+  background: var(--bg1); border: 1px solid var(--border-2); border-radius: 14px;
+  box-shadow: var(--shadow); padding: 12px; display: flex; flex-direction: column; gap: 8px;
+}
+.acct-switcher-head { font-size: 11px; color: var(--faint); letter-spacing: 1px;
+  font-weight: 600; text-transform: uppercase; padding: 2px 4px; }
+.acct-list { display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow-y: auto; }
+.acct-empty { color: var(--faint); font-size: 13px; text-align: center; padding: 14px 4px; }
+.acct-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px;
+  cursor: pointer; border: 1px solid transparent; transition: 0.12s; }
+.acct-row:hover { background: rgba(255,255,255,0.05); }
+.acct-row.active { background: rgba(87,169,255,0.12); border-color: rgba(87,169,255,0.3); }
+.acct-av { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; background: #10192c; flex-shrink: 0; }
+.acct-av-ph { display: grid; place-items: center; font-weight: 700; font-size: 14px; color: var(--muted); }
+.acct-row-main { min-width: 0; flex: 1; }
+.acct-row-name { font-size: 14px; font-weight: 600; color: var(--txt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acct-row-handle { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acct-check { color: var(--accent); font-weight: 700; }
+.acct-x { background: transparent; border: 0; color: var(--faint); font-size: 18px; line-height: 1;
+  width: 24px; height: 24px; border-radius: 6px; cursor: pointer; flex-shrink: 0; }
+.acct-x:hover { background: var(--err); color: #fff; }
 .acct-top { display: flex; align-items: center; gap: 18px; }
 .avatar-wrap { position: relative; }
 .avatar {

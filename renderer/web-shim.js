@@ -156,6 +156,7 @@
     spotify: function (opts) { sendCmd(Object.assign({ cmd: "spotify" }, opts || {})); },
     logger: function (payload) { sendCmd(Object.assign({ cmd: "logger" }, payload || {})); },
     profile: function (payload) { sendCmd(Object.assign({ cmd: "profile" }, payload || {})); },
+    account: function (payload) { sendCmd(Object.assign({ cmd: "account" }, payload || {})); },
     logout: function () { sendCmd({ cmd: "logout" }); },
 
     savedToken: function () { return Promise.resolve(null); },

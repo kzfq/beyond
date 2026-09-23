@@ -133,18 +133,92 @@ function doLogin(token, remember, silent) {
 $("#loginBtn").addEventListener("click", () => {
   const t = tokenInput.value.trim();
   if (!t) { errEl.textContent = "Enter a token first."; return; }
+  if (addMode) {
+    addMode = false;
+    const b = $("#loginBtn"); if (b) b.textContent = "Login";
+    window.beyond.account({ action: "add", token: t });
+    loginEl.classList.add("hidden"); appEl.classList.remove("hidden");
+    tokenInput.value = ""; errEl.textContent = "";
+    return;
+  }
   doLogin(t, $("#remember").checked, false);
 });
 tokenInput.addEventListener("keydown", (e) => { if (e.key === "Enter") $("#loginBtn").click(); });
 
-function doSwitch() {
-  window.beyond.logout();
-  uptimeStart = null; tokenInput.value = "";
-  appEl.classList.add("hidden"); loginEl.classList.remove("hidden");
+// ---- accounts (multi-account switcher) ----
+let accounts = [];
+let activeId = null;
+let addMode = false;
+const acctSwitcher = $("#acctSwitcher");
+const acctList = $("#acctList");
+
+function renderSwitcher() {
+  if (!acctList) return;
+  if (!accounts.length) {
+    acctList.innerHTML = `<div class="acct-empty">No saved accounts yet.</div>`;
+    return;
+  }
+  acctList.innerHTML = accounts.map((a) => {
+    const name = esc(a.globalName || a.username || "account");
+    const handle = a.username ? esc("@" + a.username) : "";
+    const av = a.avatarUrl
+      ? `<img class="acct-av" src="${esc(a.avatarUrl)}" alt="">`
+      : `<div class="acct-av acct-av-ph">${esc((name[0] || "?").toUpperCase())}</div>`;
+    const isActive = a.id === activeId;
+    return `<div class="acct-row${isActive ? " active" : ""}" data-id="${esc(a.id)}">
+      ${av}
+      <div class="acct-row-main"><div class="acct-row-name">${name}</div>
+        <div class="acct-row-handle">${handle}</div></div>
+      ${isActive ? '<span class="acct-check">✓</span>' : ""}
+      <button class="acct-x" data-id="${esc(a.id)}" title="Remove">×</button>
+    </div>`;
+  }).join("");
 }
-$("#switchBtn").addEventListener("click", doSwitch);
-$("#addBtn").addEventListener("click", doSwitch);
-if ($("#switchBtn2")) $("#switchBtn2").addEventListener("click", doSwitch);
+
+function toggleSwitcher(force) {
+  if (!acctSwitcher) return;
+  const show = force !== undefined ? force : acctSwitcher.classList.contains("hidden");
+  acctSwitcher.classList.toggle("hidden", !show);
+  if (show) renderSwitcher();
+}
+
+function startAddAccount() {
+  addMode = true;
+  toggleSwitcher(false);
+  tokenInput.value = "";
+  errEl.textContent = "Adding another account — paste its token.";
+  appEl.classList.add("hidden");
+  loginEl.classList.remove("hidden");
+  const b = $("#loginBtn"); if (b) b.textContent = "Add account";
+}
+
+$("#switchBtn").addEventListener("click", () => toggleSwitcher());
+$("#addBtn").addEventListener("click", startAddAccount);
+if ($("#switchBtn2")) $("#switchBtn2").addEventListener("click", () => toggleSwitcher());
+if ($("#acctAddInline")) $("#acctAddInline").addEventListener("click", startAddAccount);
+
+if (acctList) {
+  acctList.addEventListener("click", (e) => {
+    const x = e.target.closest(".acct-x");
+    if (x) { e.stopPropagation(); window.beyond.account({ action: "remove", id: x.dataset.id }); return; }
+    const row = e.target.closest(".acct-row");
+    if (row) {
+      const id = row.dataset.id;
+      if (id !== activeId) { window.beyond.account({ action: "switch", id }); notify("info", "Switching account…"); }
+      toggleSwitcher(false);
+    }
+  });
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  toggleSwitcher(false);
+  if (addMode) {
+    addMode = false;
+    const b = $("#loginBtn"); if (b) b.textContent = "Login";
+    errEl.textContent = "";
+    if (accounts.length) { loginEl.classList.add("hidden"); appEl.classList.remove("hidden"); }
+  }
+});
 if ($("#refreshBtn")) $("#refreshBtn").addEventListener("click", () => window.beyond.refresh());
 
 const tglPrivate = $("#tglPrivate"), tglDisc = $("#tglDiscoverable");
@@ -899,6 +973,15 @@ window.beyond.onEvent((evt) => {
       break;
     case "spotify_lyric":
 
+      break;
+    case "accounts_state":
+      accounts = evt.accounts || [];
+      activeId = evt.active_id || null;
+      renderSwitcher();
+      break;
+    case "logged_out":
+      appEl.classList.add("hidden"); loginEl.classList.remove("hidden");
+      tokenInput.value = ""; uptimeStart = null;
       break;
     case "logger_state":
       logCfg = evt.config || logCfg;

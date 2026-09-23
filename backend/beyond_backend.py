@@ -433,7 +433,7 @@ def build_v2_view(discord, kind: str):
         view = ui.LayoutView()
         container = ui.Container(accent_colour=discord.Colour(ACCENT))
         if kind == "help":
-            container.add_item(ui.TextDisplay("## ⬜  Beyond"))
+            container.add_item(ui.TextDisplay("## Beyond"))
             container.add_item(ui.TextDisplay("-# selfbot + slash · v0.1.0"))
             container.add_item(ui.Separator())
             for title, body in help_lines():
@@ -540,7 +540,7 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
     def _help_container(cat="overview"):
         ui = discord.ui
         c = ui.Container(accent_colour=discord.Colour(ACCENT))
-        c.add_item(ui.TextDisplay("## ⬜  Beyond"))
+        c.add_item(ui.TextDisplay("## Beyond"))
         c.add_item(ui.TextDisplay("-# selfbot + slash · v0.1.0"))
         c.add_item(ui.Separator())
         if cat == "overview" or cat not in BOT_HELP:
@@ -554,36 +554,35 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
         return c
 
     class _CatButton(discord.ui.Button):
-        def __init__(self, cat, parent):
+        def __init__(self, cat):
             super().__init__(label=cat, style=discord.ButtonStyle.secondary)
             self._cat = cat
-            self._parent = parent
         async def callback(self, interaction):
-            self._parent.show(self._cat)
-            await interaction.response.edit_message(view=self._parent)
+            try:
+                await interaction.response.edit_message(view=HelpView(self._cat))
+            except Exception as e:
+                log(f"help cat button failed: {e}")
 
     class _HomeButton(discord.ui.Button):
-        def __init__(self, parent):
-            super().__init__(label="⌂ Home", style=discord.ButtonStyle.primary)
-            self._parent = parent
+        def __init__(self):
+            super().__init__(label="Home", style=discord.ButtonStyle.primary)
         async def callback(self, interaction):
-            self._parent.show("overview")
-            await interaction.response.edit_message(view=self._parent)
+            try:
+                await interaction.response.edit_message(view=HelpView("overview"))
+            except Exception as e:
+                log(f"help home button failed: {e}")
 
     class HelpView(discord.ui.LayoutView):
-        def __init__(self):
+        def __init__(self, cat="overview"):
             super().__init__(timeout=180)
-            self.show("overview")
-        def show(self, cat):
-            self.clear_items()
             c = _help_container(cat)
             row = discord.ui.ActionRow()
             for name in BOT_HELP:
-                row.add_item(_CatButton(name, self))
+                row.add_item(_CatButton(name))
             c.add_item(row)
             row2 = discord.ui.ActionRow()
             if cat != "overview":
-                row2.add_item(_HomeButton(self))
+                row2.add_item(_HomeButton())
             row2.add_item(discord.ui.Button(style=discord.ButtonStyle.link,
                                             label="GitHub", url=REPO_URL))
             c.add_item(row2)

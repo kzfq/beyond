@@ -33,6 +33,22 @@ for _stream in (sys.stdout, sys.stderr):
 PREFIX = os.environ.get("BEYOND_PREFIX", ".")
 NITRO = {0: "None", 1: "Nitro Classic", 2: "Nitro", 3: "Nitro Basic"}
 ACCENT = 0x5B8CFF
+REPO_URL = "https://github.com/kzfq/beyond"
+
+# slash-bot command menu (real slash names), grouped by category
+BOT_HELP = {
+    "Core": [("ping", "Gateway latency"),
+             ("help", "This menu"),
+             ("stats", "Your account stats")],
+    "Presence": [("rpc", "Set your rich presence"),
+                 ("rpcclear", "Clear your rich presence"),
+                 ("status", "online / idle / dnd / invisible"),
+                 ("platform", "Spoof the platform you appear on"),
+                 ("multiplatform", "Appear on several platforms at once"),
+                 ("spotifylyrics", "Sync Spotify lyrics to your status")],
+    "Logger": [("logger", "Track keywords/mentions, log deletes & edits")],
+    "Profile": [("profile", "Set display name, avatar, banner, bio, pronouns, accent")],
+}
 
 CFG = {"private": False, "discoverable": True}
 LAST_STATS = {}
@@ -392,6 +408,25 @@ async def run_selfbot(bot):
         emit({"type": "notif", "kind": "err", "msg": f"Gateway error: {e}"})
         log("gateway traceback:\n" + traceback.format_exc())
 
+def build_redirect_view(discord):
+    """Shown to anyone who isn't the owner: a friendly redirect to the repo."""
+    ui = discord.ui
+    try:
+        view = ui.LayoutView()
+        c = ui.Container(accent_colour=discord.Colour(ACCENT))
+        c.add_item(ui.TextDisplay("## ⬜  Beyond"))
+        c.add_item(ui.TextDisplay("This panel belongs to someone else — but Beyond is "
+                                  "free and open source. Grab your own:"))
+        c.add_item(ui.Separator())
+        row = ui.ActionRow()
+        row.add_item(ui.Button(style=discord.ButtonStyle.link, label="Get Beyond", url=REPO_URL))
+        c.add_item(row)
+        view.add_item(c)
+        return view
+    except Exception as e:
+        log(f"redirect view build failed: {e}")
+        return None
+
 def build_v2_view(discord, kind: str):
     ui = discord.ui
     try:
@@ -453,10 +488,14 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
     async def _owner_only(interaction):
         if OWNER_ID is not None and interaction.user.id == OWNER_ID:
             return True
+        # non-owner -> redirect to the repo with a link button (Components V2)
         try:
-            await interaction.response.send_message(
-                "\U0001f6e0️  **Beyond** is still in development — it'll be downloadable soon.",
-                ephemeral=True)
+            view = build_redirect_view(discord)
+            if view is not None:
+                await interaction.response.send_message(view=view, ephemeral=True)
+            else:
+                await interaction.response.send_message(
+                    f"This isn't your Beyond — get your own: {REPO_URL}", ephemeral=True)
         except Exception:
             pass
         return False
@@ -497,6 +536,59 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
             except Exception:
                 pass
 
+    # ---- fancy Components-V2 help (category buttons + repo link) ----
+    def _help_container(cat="overview"):
+        ui = discord.ui
+        c = ui.Container(accent_colour=discord.Colour(ACCENT))
+        c.add_item(ui.TextDisplay("## ⬜  Beyond"))
+        c.add_item(ui.TextDisplay("-# selfbot + slash · v0.1.0"))
+        c.add_item(ui.Separator())
+        if cat == "overview" or cat not in BOT_HELP:
+            for name, cmds in BOT_HELP.items():
+                c.add_item(ui.TextDisplay(f"**{name}**  ·  {len(cmds)} command(s)"))
+            c.add_item(ui.TextDisplay("-# pick a category below"))
+        else:
+            c.add_item(ui.TextDisplay(f"### {cat}"))
+            for n, d in BOT_HELP[cat]:
+                c.add_item(ui.TextDisplay(f"`/{n}`  —  {d}"))
+        return c
+
+    class _CatButton(discord.ui.Button):
+        def __init__(self, cat, parent):
+            super().__init__(label=cat, style=discord.ButtonStyle.secondary)
+            self._cat = cat
+            self._parent = parent
+        async def callback(self, interaction):
+            self._parent.show(self._cat)
+            await interaction.response.edit_message(view=self._parent)
+
+    class _HomeButton(discord.ui.Button):
+        def __init__(self, parent):
+            super().__init__(label="⌂ Home", style=discord.ButtonStyle.primary)
+            self._parent = parent
+        async def callback(self, interaction):
+            self._parent.show("overview")
+            await interaction.response.edit_message(view=self._parent)
+
+    class HelpView(discord.ui.LayoutView):
+        def __init__(self):
+            super().__init__(timeout=180)
+            self.show("overview")
+        def show(self, cat):
+            self.clear_items()
+            c = _help_container(cat)
+            row = discord.ui.ActionRow()
+            for name in BOT_HELP:
+                row.add_item(_CatButton(name, self))
+            c.add_item(row)
+            row2 = discord.ui.ActionRow()
+            if cat != "overview":
+                row2.add_item(_HomeButton(self))
+            row2.add_item(discord.ui.Button(style=discord.ButtonStyle.link,
+                                            label="GitHub", url=REPO_URL))
+            c.add_item(row2)
+            self.add_item(c)
+
     @tree.command(name="ping", description="Show gateway latency")
     @user_installable
     async def _ping(interaction):
@@ -505,7 +597,16 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
     @tree.command(name="help", description="Show Beyond commands")
     @user_installable
     async def _help(interaction):
-        await _reply_v2(interaction, "help", help_text())
+        emit({"type": "command"})
+        eph = bool(CFG.get("private"))
+        try:
+            await interaction.response.send_message(view=HelpView(), ephemeral=eph)
+        except Exception as e:
+            log(f"help view failed: {e}")
+            try:
+                await interaction.response.send_message(help_text(), ephemeral=eph)
+            except Exception:
+                pass
 
     @tree.command(name="stats", description="Show account stats")
     @user_installable

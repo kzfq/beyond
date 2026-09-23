@@ -49,6 +49,7 @@ BOT_HELP = {
                  ("spotifylyrics", "Sync Spotify lyrics to your status")],
     "Logger": [("logger", "Track keywords/mentions, log deletes & edits")],
     "Profile": [("profile", "Set display name, avatar, banner, bio, pronouns, accent")],
+    "Anti-GC": [("antigc", "Auto-leave group-DM traps (+ block/msg/name/icon/webhook/whitelist)")],
 }
 
 CFG = {"private": False, "discoverable": True}
@@ -72,6 +73,7 @@ _userapp_watch_task = None
 _spotify_cog = None
 _logger_cog = None
 _profile_cog = None
+_antigc_cog = None
 _DISCOVER_RPC_KEY = "beyond_promo"
 
 def emit(obj: dict) -> None:
@@ -135,10 +137,25 @@ HELP = {
             ("profile", "profile", "Show your current profile."),
         ],
     },
+    "antigc": {
+        "desc": "Auto-leave GC traps",
+        "cmds": [
+            ("antigctrap", "antigctrap <on/off>", "Toggle the anti-GC trap."),
+            ("agctblock", "agctblock <on/off>", "Auto-block the GC creator on leave."),
+            ("agctmsg", "agctmsg <message>", "Message sent before leaving."),
+            ("agctname", "agctname <name>", "Rename the GC before leaving."),
+            ("agcticon", "agcticon <url>", "Set the GC icon before leaving."),
+            ("agctwebhook", "agctwebhook <url>", "Webhook for trap alerts."),
+            ("agctwl", "agctwl <user>", "Whitelist a user (ignore their GCs)."),
+            ("agctunwl", "agctunwl <user>", "Remove a user from the whitelist."),
+            ("agctwllist", "agctwllist", "List whitelisted users."),
+        ],
+    },
 }
 
 HELP_ALIASES = {
     "cmds": "help", "commands": "help",
+    "agct": "antigctrap",
     "logger": "msglog", "mlog": "msglog",
     "setname": "setdisplayname", "setdisplay": "setdisplayname",
     "setabout": "setbio", "setcolor": "setaccent", "setcolour": "setaccent",
@@ -873,6 +890,56 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
         except Exception as e:
             await _rpc_reply(interaction, f"Failed: {e}")
 
+    @tree.command(name="antigc", description="Auto-leave group-DM traps")
+    @user_installable
+    @app_commands.describe(action="What to change", value="on/off, text, url, or user id")
+    async def _antigc(interaction,
+                      action: Literal["on", "off", "block_on", "block_off", "message",
+                                      "name", "icon", "webhook", "whitelist",
+                                      "unwhitelist", "status"],
+                      value: _Opt[str] = None):
+        if _antigc_cog is None:
+            await _rpc_reply(interaction, "Log into your account in Beyond first.")
+            return
+        st = _antigc_cog.state
+        try:
+            if action == "on":
+                st["enabled"] = True; _antigc_cog._save(); msg = "Anti-GCTrap enabled."
+            elif action == "off":
+                st["enabled"] = False; _antigc_cog._save(); msg = "Anti-GCTrap disabled."
+            elif action == "block_on":
+                st["block"] = True; _antigc_cog._save(); msg = "Auto-block enabled."
+            elif action == "block_off":
+                st["block"] = False; _antigc_cog._save(); msg = "Auto-block disabled."
+            elif action == "message":
+                st["leave_msg"] = value or ""; _antigc_cog._save(); msg = "Leave message set."
+            elif action == "name":
+                st["gc_name"] = value or ""; _antigc_cog._save(); msg = "GC rename set."
+            elif action == "icon":
+                st["gc_icon_url"] = value or None; _antigc_cog._save(); msg = "GC icon set."
+            elif action == "webhook":
+                st["webhook_url"] = value or None; _antigc_cog._save()
+                msg = "Webhook set." if value else "Webhook cleared."
+            elif action == "whitelist":
+                if not value:
+                    msg = "Provide a user id."
+                else:
+                    _antigc_cog.whitelist.add(value.strip("<@!>")); _antigc_cog._save_wl()
+                    msg = f"Whitelisted {value}."
+            elif action == "unwhitelist":
+                if not value:
+                    msg = "Provide a user id."
+                else:
+                    _antigc_cog.whitelist.discard(value.strip("<@!>")); _antigc_cog._save_wl()
+                    msg = f"Unwhitelisted {value}."
+            else:  # status
+                wl = ", ".join(sorted(_antigc_cog.whitelist)) or "none"
+                msg = (f"Anti-GCTrap **{'on' if st['enabled'] else 'off'}** · block {st['block']}\n"
+                       f"msg: {st['leave_msg']} · name: {st['gc_name']}\nwhitelist: {wl}")
+            await _rpc_reply(interaction, msg)
+        except Exception as e:
+            await _rpc_reply(interaction, f"Failed: {e}")
+
     @client.event
     async def on_ready():
 
@@ -1029,7 +1096,7 @@ def _upsert_account(token: str, stats: dict, make_active: bool = True) -> dict:
     return rec
 
 async def _teardown_bot() -> None:
-    global _bot, _bot_task, _rpc_cog, _spotify_cog, _logger_cog, _profile_cog
+    global _bot, _bot_task, _rpc_cog, _spotify_cog, _logger_cog, _profile_cog, _antigc_cog
     if _bot_task is not None:
         try:
             _bot_task.cancel()
@@ -1046,6 +1113,7 @@ async def _teardown_bot() -> None:
     _spotify_cog = None
     _logger_cog = None
     _profile_cog = None
+    _antigc_cog = None
 
 async def _switch_to_token(token: str) -> None:
     """Tear down the current account and log in with another (one active at a time)."""
@@ -1075,7 +1143,7 @@ async def _account_remove(aid: str) -> None:
 
 async def handle(cmd: dict, state: dict):
     global _bot, _bot_task, _rpc_cog, _realbot_task, OWNER_ID, _bot_app_id, _userapp_watch_task, _spotify_cog
-    global _logger_cog, _profile_cog, _ACTIVE_ID
+    global _logger_cog, _profile_cog, _antigc_cog, _ACTIVE_ID
     c = cmd.get("cmd")
 
     if c == "login":
@@ -1131,6 +1199,15 @@ async def handle(cmd: dict, state: dict):
                 except Exception as e:
                     _profile_cog = None
                     log(f"profile cog failed to load: {e}\n" + traceback.format_exc())
+
+                try:
+                    import antigc_cog
+                    _antigc_cog = antigc_cog.AntiGC(_bot)
+                    _bot.add_cog(_antigc_cog)
+                    log("Anti-GC cog loaded")
+                except Exception as e:
+                    _antigc_cog = None
+                    log(f"antigc cog failed to load: {e}\n" + traceback.format_exc())
             stats = await build_stats(_bot)
         except Exception as e:
             emit({"type": "login_error", "msg": str(e)})

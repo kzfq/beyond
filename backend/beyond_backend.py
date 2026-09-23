@@ -50,6 +50,18 @@ BOT_HELP = {
     "Logger": [("logger", "Track keywords/mentions, log deletes & edits")],
     "Profile": [("profile", "Set display name, avatar, banner, bio, pronouns, accent")],
     "Anti-GC": [("antigc", "Auto-leave group-DM traps (+ block/msg/name/icon/webhook/whitelist)")],
+    "Friends": [("friendcount", "Friend/block/pending counts"),
+                ("friend", "Send a friend request"),
+                ("unfriend", "Remove a friend"),
+                ("pending", "Incoming friend requests"),
+                ("outgoing", "Outgoing friend requests"),
+                ("blocked", "Blocked users"),
+                ("block", "Block a user"),
+                ("unblock", "Unblock a user"),
+                ("massunfriend", "Remove all friends"),
+                ("closedms", "Close all open DMs"),
+                ("autoreply", "Auto-reply to a user"),
+                ("autoreplystop", "Stop auto-reply")],
 }
 
 CFG = {"private": False, "discoverable": True}
@@ -74,6 +86,7 @@ _spotify_cog = None
 _logger_cog = None
 _profile_cog = None
 _antigc_cog = None
+_friends_cog = None
 _DISCOVER_RPC_KEY = "beyond_promo"
 
 def emit(obj: dict) -> None:
@@ -135,6 +148,23 @@ HELP = {
             ("setdisplayname", "setdisplayname <name>", "Set your display name."),
             ("setaccent", "setaccent <#hex>", "Set your profile accent colour."),
             ("profile", "profile", "Show your current profile."),
+        ],
+    },
+    "friends": {
+        "desc": "Friends list tools",
+        "cmds": [
+            ("friendcount", "friendcount", "Show friend/block/pending counts."),
+            ("friend", "friend <user|id>", "Send a friend request."),
+            ("unfriend", "unfriend <@user|id>", "Remove a friend."),
+            ("pending", "pending", "Show incoming friend requests."),
+            ("outgoing", "outgoing", "Show outgoing friend requests."),
+            ("blocked", "blocked", "Show blocked users."),
+            ("block", "block <@user|id>", "Block a user."),
+            ("unblock", "unblock <@user|id>", "Unblock a user."),
+            ("massunfriend", "massunfriend", "Remove all friends one by one."),
+            ("closedms", "closedms", "Close all open DM channels."),
+            ("autoreply", "autoreply <@user> <msg>", "Auto-reply to a user's messages."),
+            ("autoreplystop", "autoreplystop [@user]", "Stop auto-reply (one user or all)."),
         ],
     },
     "antigc": {
@@ -940,6 +970,111 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
         except Exception as e:
             await _rpc_reply(interaction, f"Failed: {e}")
 
+    def _need_friends():
+        return _friends_cog is None
+
+    @tree.command(name="friendcount", description="Show friend/block/pending counts")
+    @user_installable
+    async def _friendcount(interaction):
+        if _need_friends():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, await _friends_cog.stats_block())
+
+    @tree.command(name="pending", description="Show incoming friend requests")
+    @user_installable
+    async def _pending(interaction):
+        if _need_friends():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, await _friends_cog.list_block(3, "incoming requests"))
+
+    @tree.command(name="outgoing", description="Show outgoing friend requests")
+    @user_installable
+    async def _outgoing(interaction):
+        if _need_friends():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, await _friends_cog.list_block(4, "outgoing requests"))
+
+    @tree.command(name="blocked", description="Show blocked users")
+    @user_installable
+    async def _blocked(interaction):
+        if _need_friends():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, await _friends_cog.list_block(2, "blocked users"))
+
+    @tree.command(name="friend", description="Send a friend request")
+    @user_installable
+    @app_commands.describe(user="Username, username#tag, or user id")
+    async def _friend(interaction, user: str):
+        if _need_friends():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, await _friends_cog.do_friend(user))
+
+    @tree.command(name="unfriend", description="Remove a friend")
+    @user_installable
+    @app_commands.describe(user="User id")
+    async def _unfriend(interaction, user: str):
+        if _need_friends():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, await _friends_cog.do_rel_delete(user, "Unfriended"))
+
+    @tree.command(name="block", description="Block a user")
+    @user_installable
+    @app_commands.describe(user="User id")
+    async def _block_cmd(interaction, user: str):
+        if _need_friends():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, await _friends_cog.do_block(user))
+
+    @tree.command(name="unblock", description="Unblock a user")
+    @user_installable
+    @app_commands.describe(user="User id")
+    async def _unblock(interaction, user: str):
+        if _need_friends():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, await _friends_cog.do_rel_delete(user, "Unblocked"))
+
+    @tree.command(name="massunfriend", description="Remove all friends one by one")
+    @user_installable
+    async def _massunfriend(interaction):
+        if _need_friends():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, "Removing all friends…")
+        emit({"type": "command"})
+        try:
+            await interaction.followup.send(await _friends_cog.do_massunfriend(),
+                                            ephemeral=bool(CFG.get("private")))
+        except Exception:
+            pass
+
+    @tree.command(name="closedms", description="Close all open DM channels")
+    @user_installable
+    async def _closedms(interaction):
+        if _need_friends():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, "Closing DMs…")
+        emit({"type": "command"})
+        try:
+            await interaction.followup.send(await _friends_cog.do_closedms(),
+                                            ephemeral=bool(CFG.get("private")))
+        except Exception:
+            pass
+
+    @tree.command(name="autoreply", description="Auto-reply to a user's messages")
+    @user_installable
+    @app_commands.describe(user="User id", message="What to auto-reply with")
+    async def _autoreply(interaction, user: str, message: str):
+        if _need_friends():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, _friends_cog.set_autoreply(user, message))
+
+    @tree.command(name="autoreplystop", description="Stop auto-reply for a user or all")
+    @user_installable
+    @app_commands.describe(user="User id (leave empty to clear all)")
+    async def _autoreplystop(interaction, user: _Opt[str] = None):
+        if _need_friends():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, _friends_cog.stop_autoreply(user or ""))
+
     @client.event
     async def on_ready():
 
@@ -1096,7 +1231,7 @@ def _upsert_account(token: str, stats: dict, make_active: bool = True) -> dict:
     return rec
 
 async def _teardown_bot() -> None:
-    global _bot, _bot_task, _rpc_cog, _spotify_cog, _logger_cog, _profile_cog, _antigc_cog
+    global _bot, _bot_task, _rpc_cog, _spotify_cog, _logger_cog, _profile_cog, _antigc_cog, _friends_cog
     if _bot_task is not None:
         try:
             _bot_task.cancel()
@@ -1114,6 +1249,7 @@ async def _teardown_bot() -> None:
     _logger_cog = None
     _profile_cog = None
     _antigc_cog = None
+    _friends_cog = None
 
 async def _switch_to_token(token: str) -> None:
     """Tear down the current account and log in with another (one active at a time)."""
@@ -1143,7 +1279,7 @@ async def _account_remove(aid: str) -> None:
 
 async def handle(cmd: dict, state: dict):
     global _bot, _bot_task, _rpc_cog, _realbot_task, OWNER_ID, _bot_app_id, _userapp_watch_task, _spotify_cog
-    global _logger_cog, _profile_cog, _antigc_cog, _ACTIVE_ID
+    global _logger_cog, _profile_cog, _antigc_cog, _friends_cog, _ACTIVE_ID
     c = cmd.get("cmd")
 
     if c == "login":
@@ -1208,6 +1344,15 @@ async def handle(cmd: dict, state: dict):
                 except Exception as e:
                     _antigc_cog = None
                     log(f"antigc cog failed to load: {e}\n" + traceback.format_exc())
+
+                try:
+                    import friends_cog
+                    _friends_cog = friends_cog.Friends(_bot)
+                    _bot.add_cog(_friends_cog)
+                    log("Friends cog loaded")
+                except Exception as e:
+                    _friends_cog = None
+                    log(f"friends cog failed to load: {e}\n" + traceback.format_exc())
             stats = await build_stats(_bot)
         except Exception as e:
             emit({"type": "login_error", "msg": str(e)})

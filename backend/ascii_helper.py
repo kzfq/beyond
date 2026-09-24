@@ -24,6 +24,18 @@ def _diag(msg: str) -> None:
         pass
 
 
+def _msg_ref(m):
+    """Pull (channel_id, message_id) out of whatever ctx.send() gave us.
+
+    Older modifyself builds return a plain dict (not a Message) for a
+    channel that isn't cached yet — DMs most commonly — so we can't rely on
+    m.delete() existing at all. Reading the ids by hand and deleting through
+    the HTTP client directly works either way."""
+    if isinstance(m, dict):
+        return int(m["channel_id"]), int(m["id"])
+    return int(m.channel_id), int(m.id)
+
+
 async def _send_and_expire(ctx, text, delay=15):
     # delete the invoking command message immediately
     try:
@@ -41,17 +53,27 @@ async def _send_and_expire(ctx, text, delay=15):
         _diag("send() returned no message object — auto-delete timer NOT scheduled")
         return
 
+    try:
+        mid = _msg_ref(m)[1]
+    except Exception as e:
+        _diag(f"could not read ids off the sent message ({e!r}) — auto-delete timer NOT scheduled")
+        return
+
     async def _rm():
         try:
             await asyncio.sleep(max(1, int(delay or 15)))
         except asyncio.CancelledError:
-            _diag(f"auto-delete timer for message {getattr(m, 'id', '?')} was cancelled")
+            _diag(f"auto-delete timer for message {mid} was cancelled")
             raise
         try:
-            await m.delete()
+            if hasattr(m, "delete"):
+                await m.delete()
+            else:
+                cid, real_mid = _msg_ref(m)
+                await ctx.bot._http.delete_message(cid, real_mid)
         except Exception as e:
             # was it already gone (user deleted it manually) vs. a real failure?
-            _diag(f"auto-delete of message {getattr(m, 'id', '?')} failed: {e!r}")
+            _diag(f"auto-delete of message {mid} failed: {e!r}")
 
     t = asyncio.create_task(_rm())
     _TASKS.add(t)

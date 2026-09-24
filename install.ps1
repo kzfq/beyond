@@ -53,5 +53,11 @@ Say "Installing Python dependencies…"
 python -m pip install --upgrade pip
 python -m pip install -r backend\requirements.txt
 
+# Belt-and-suspenders: force discord.py to a Components-V2-capable version.
+# The real bot's whole UI (buttons, dropdowns, images) needs >=2.6.0 — an
+# old already-installed copy has silently broken this before.
+Say "Ensuring discord.py is Components-V2-capable (>=2.6.0)…"
+python -m pip install --upgrade "discord.py>=2.6.0"
+
 Say "Starting Beyond — your link + password appear below. Keep this window open."
 python backend\beyond_agent.py

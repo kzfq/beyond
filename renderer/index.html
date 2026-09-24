@@ -59,6 +59,7 @@
       <button class="rail-btn" data-tab="spotify" title="Spotify Lyrics"><svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" fill="currentColor"/><circle cx="16" cy="16" r="3" fill="currentColor"/></svg></button>
       <button class="rail-btn" data-tab="logger" title="Message Logger"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
       <button class="rail-btn" data-tab="profile" title="Profile"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 18c1-2.5 3-3.4 5-3.4s4 .9 5 3.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+      <button class="rail-btn" data-tab="layout" title="Layout"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3.5 9.5h17M9 9.5v11" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
       <button class="rail-btn" data-tab="history" title="History"><svg viewBox="0 0 24 24"><path d="M12 8v5l3 2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M4 4v4h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       <div class="rail-spacer"></div>
       <button class="rail-btn" data-tab="account" title="Account"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
@@ -437,6 +438,48 @@
                 <div class="pf-sub">ABOUT ME</div>
                 <div id="pfBio" class="pf-bio">—</div>
               </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="page hidden" data-page="layout">
+        <h2 class="page-title">Layout</h2>
+        <div class="layout-wrap">
+          <section class="card layout-editor">
+            <div class="log-cap">Card blocks</div>
+            <div id="layoutBlocks" class="layout-blocks"></div>
+            <div class="layout-add-row">
+              <button class="soft" data-add="text">+ Text</button>
+              <button class="soft" data-add="section">+ Image &amp; text</button>
+              <button class="soft" data-add="image">+ Big image</button>
+              <button class="soft" data-add="divider">+ Divider</button>
+              <button class="soft" data-add="buttons">+ Buttons</button>
+            </div>
+
+            <div class="log-cap mt">Accent colour</div>
+            <div class="rpc-two">
+              <div class="rpc-field"><label>Hex</label><input id="layoutAccent" class="bot-input" placeholder="#5b8cff"></div>
+              <div class="rpc-field prof-accent-preview"><label>&nbsp;</label><input id="layoutAccentColor" type="color" value="#5b8cff" class="prof-color"></div>
+            </div>
+
+            <div class="rpc-actions">
+              <button id="layoutSave" class="primary">Save layout</button>
+              <button id="layoutReload" class="soft">Reload</button>
+            </div>
+
+            <div class="log-cap mt">Test send</div>
+            <div class="rpc-two">
+              <div class="rpc-field"><label>Channel ID</label><input id="layoutChannel" class="bot-input" placeholder="paste a channel ID" spellcheck="false" autocomplete="off"></div>
+              <div class="rpc-field"><label>&nbsp;</label><button id="layoutSend" class="soft wide">Send test card</button></div>
+            </div>
+            <div class="log-note"><code>/card</code> posts this exact layout. Buttons are link-only (they open a URL) — that's what Discord allows on a static card.</div>
+          </section>
+
+          <aside class="card layout-preview">
+            <div class="log-cap">Preview</div>
+            <div id="layoutPreviewCard" class="layout-card">
+              <div id="layoutPreviewBody" class="layout-card-body"></div>
             </div>
           </aside>
         </div>

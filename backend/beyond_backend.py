@@ -72,6 +72,89 @@ NITRO = {0: "None", 1: "Nitro Classic", 2: "Nitro", 3: "Nitro Basic"}
 ACCENT = 0x5B8CFF
 REPO_URL = "https://github.com/kzfq/beyond"
 
+# --------------------------------------------------------------------------
+# Layout builder: user-designed Components-V2 card for the real bot's /card.
+# blocks: [{"type":"text","content":"..."} , {"type":"divider"} ,
+#          {"type":"image","url":"..."} ,
+#          {"type":"section","text":"...","thumb":"..."} ,
+#          {"type":"buttons","items":[{"label":"...","url":"..."}, ...]}]
+# --------------------------------------------------------------------------
+LAYOUT_DEFAULT = {
+    "accent": "#5b8cff",
+    "blocks": [
+        {"type": "text", "content": "## Beyond\nCustomize this card from the **Layout** tab."},
+    ],
+}
+
+def load_layout() -> dict:
+    import persistence
+    lay = persistence.get("layout", None)
+    if not isinstance(lay, dict) or "blocks" not in lay:
+        return dict(LAYOUT_DEFAULT)
+    return lay
+
+def save_layout(layout: dict) -> None:
+    import persistence
+    persistence.set_key("layout", layout)
+
+def build_layout_view(discord, layout: dict):
+    """Render a user-designed layout (see LAYOUT_DEFAULT shape) into a real
+    Components-V2 discord.ui.LayoutView. Every block type CV2 offers that
+    makes sense for a static broadcast card: text, dividers, big images,
+    a text+thumbnail section, and up to 5 link buttons."""
+    ui = discord.ui
+    accent = (layout or {}).get("accent") or "#5b8cff"
+    try:
+        colour = discord.Colour(int(str(accent).lstrip("#"), 16))
+    except Exception:
+        colour = discord.Colour(ACCENT)
+    view = ui.LayoutView()
+    c = ui.Container(accent_colour=colour)
+    added_any = False
+    for b in (layout or {}).get("blocks", []) or []:
+        t = (b or {}).get("type")
+        if t == "text":
+            content = str(b.get("content") or "").strip()
+            if content:
+                c.add_item(ui.TextDisplay(content[:4000]))
+                added_any = True
+        elif t == "divider":
+            c.add_item(ui.Separator())
+            added_any = True
+        elif t == "image":
+            url = str(b.get("url") or "").strip()
+            if url:
+                gallery = ui.MediaGallery()
+                gallery.add_item(media=url)
+                c.add_item(gallery)
+                added_any = True
+        elif t == "section":
+            text = str(b.get("text") or "").strip()
+            thumb = str(b.get("thumb") or "").strip()
+            if text:
+                if thumb:
+                    section = ui.Section(accessory=ui.Thumbnail(media=thumb))
+                    section.add_item(ui.TextDisplay(text[:1500]))
+                    c.add_item(section)
+                else:
+                    c.add_item(ui.TextDisplay(text[:1500]))
+                added_any = True
+        elif t == "buttons":
+            items = (b.get("items") or [])[:5]
+            row = ui.ActionRow()
+            for it in items:
+                label = str(it.get("label") or "Link")[:80]
+                url = str(it.get("url") or "").strip()
+                if url:
+                    row.add_item(ui.Button(style=discord.ButtonStyle.link, label=label, url=url))
+            if row.children:
+                c.add_item(row)
+                added_any = True
+    if not added_any:
+        c.add_item(ui.TextDisplay("​"))
+    view.add_item(c)
+    return view
+
 # slash-bot command menu (real slash names), grouped by category
 BOT_HELP = {
     "Core": [("ping", "Gateway latency"),
@@ -93,6 +176,7 @@ BOT_HELP = {
               ("rotatetags", "Rotate clan tags across servers"),
               ("stoprotatetags", "Stop tag rotation"),
               ("clone", "Copy a server's layout here (wipes target)")],
+    "Layout": [("card", "Post your custom Layout card (built in the app's Layout tab)")],
     "Reactions": [("superreact", "Super-react to a user's messages"),
                   ("superreactstop", "Stop super-reacting to a user"),
                   ("cyclesuperreact", "Cycle emojis on a user's messages"),
@@ -1566,6 +1650,19 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
             await _rpc_reply(interaction, "Log into your account in Beyond first."); return
         await _rpc_reply(interaction, _reactions_cog.unset("multi", user))
 
+    @tree.command(name="card", description="Post your custom Layout card here")
+    @user_installable
+    async def _card(interaction):
+        emit({"type": "command"})
+        try:
+            layout = load_layout()
+            view = build_layout_view(discord, layout)
+            eph = bool(CFG.get("private"))
+            await interaction.response.send_message(view=view, ephemeral=eph)
+        except Exception as e:
+            log(f"/card failed: {e}\n" + traceback.format_exc())
+            await _rpc_reply(interaction, f"Failed to build the card: {e}")
+
     @client.event
     async def on_ready():
 
@@ -1913,6 +2010,12 @@ async def handle(cmd: dict, state: dict):
                 emit(await _profile_cog.snapshot())
             except Exception:
                 pass
+
+        try:
+            emit({"type": "layout_state", "layout": load_layout()})
+        except Exception:
+            pass
+
         if _bot_task is None:
             _bot_task = asyncio.create_task(run_selfbot(_bot))
 
@@ -1947,6 +2050,11 @@ async def handle(cmd: dict, state: dict):
             await _account_remove(cmd.get("id"))
 
     elif c in ("refresh", "snapshot"):
+
+        try:
+            emit({"type": "layout_state", "layout": load_layout()})
+        except Exception:
+            pass
 
         if _bot is not None:
             try:
@@ -2166,6 +2274,40 @@ async def handle(cmd: dict, state: dict):
                           "status": r.status, "data": data})
         except Exception as e:
             emit({"type": "admin_result", "id": rid, "ok": False, "status": 0, "error": str(e)})
+
+    elif c == "layout":
+        action = cmd.get("action") or "get"
+        if action == "get":
+            emit({"type": "layout_state", "layout": load_layout()})
+        elif action == "save":
+            lay = cmd.get("layout")
+            if not isinstance(lay, dict):
+                emit({"type": "notif", "kind": "warn", "msg": "Bad layout payload."})
+            else:
+                save_layout(lay)
+                emit({"type": "layout_state", "layout": lay})
+                emit({"type": "notif", "kind": "ok", "msg": "Layout saved."})
+        elif action == "send":
+            channel_id = str(cmd.get("channel_id") or "").strip()
+            lay = cmd.get("layout") if isinstance(cmd.get("layout"), dict) else load_layout()
+            if not channel_id.isdigit():
+                emit({"type": "notif", "kind": "warn", "msg": "Enter a valid channel ID to test-send."})
+                return
+            if _realbot is None:
+                emit({"type": "notif", "kind": "warn",
+                      "msg": "Real bot isn't connected — set it up in Settings first."})
+                return
+            try:
+                import discord
+                ch = _realbot.get_channel(int(channel_id))
+                if ch is None:
+                    ch = await _realbot.fetch_channel(int(channel_id))
+                view = build_layout_view(discord, lay)
+                await ch.send(view=view)
+                emit({"type": "notif", "kind": "ok", "msg": "Layout sent."})
+            except Exception as e:
+                emit({"type": "notif", "kind": "err", "msg": f"Send failed: {e}"})
+                log("layout send traceback:\n" + traceback.format_exc())
 
     elif c == "logout":
         os._exit(0)

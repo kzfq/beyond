@@ -68,6 +68,7 @@ ipcMain.on("spotify", (_e, payload) => toBackend({ cmd: "spotify", ...payload })
 ipcMain.on("logger", (_e, payload) => toBackend({ cmd: "logger", ...payload }));
 ipcMain.on("profile", (_e, payload) => toBackend({ cmd: "profile", ...payload }));
 ipcMain.on("account", (_e, payload) => toBackend({ cmd: "account", ...payload }));
+ipcMain.on("layout", (_e, payload) => toBackend({ cmd: "layout", ...payload }));
 ipcMain.on("logout", () => {
   const cfg = loadConfig(); delete cfg.token; saveConfig(cfg);
   toBackend({ cmd: "logout" });

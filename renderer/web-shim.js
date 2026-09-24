@@ -157,6 +157,7 @@
     logger: function (payload) { sendCmd(Object.assign({ cmd: "logger" }, payload || {})); },
     profile: function (payload) { sendCmd(Object.assign({ cmd: "profile" }, payload || {})); },
     account: function (payload) { sendCmd(Object.assign({ cmd: "account" }, payload || {})); },
+    layout: function (payload) { sendCmd(Object.assign({ cmd: "layout" }, payload || {})); },
     logout: function () { sendCmd({ cmd: "logout" }); },
 
     savedToken: function () { return Promise.resolve(null); },

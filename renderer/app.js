@@ -915,6 +915,159 @@ if (PROF.apply) {
   PROF.reload.addEventListener("click", () => window.beyond.profile({ action: "get" }));
 }
 
+let layoutState = { accent: "#5b8cff", blocks: [] };
+const LO = {
+  blocks: $("#layoutBlocks"), accent: $("#layoutAccent"), accentColor: $("#layoutAccentColor"),
+  save: $("#layoutSave"), reload: $("#layoutReload"), channel: $("#layoutChannel"), send: $("#layoutSend"),
+  previewCard: $("#layoutPreviewCard"), previewBody: $("#layoutPreviewBody"),
+};
+function layoutDefaultBlock(type) {
+  if (type === "text") return { type: "text", content: "" };
+  if (type === "section") return { type: "section", text: "", thumb: "" };
+  if (type === "image") return { type: "image", url: "" };
+  if (type === "divider") return { type: "divider" };
+  if (type === "buttons") return { type: "buttons", items: [{ label: "Link", url: "" }] };
+  return { type: "text", content: "" };
+}
+function layoutBlockLabel(b) {
+  return { text: "Text", section: "Image & text", image: "Big image", divider: "Divider", buttons: "Buttons" }[b.type] || b.type;
+}
+function escAttr(s) { return esc(s).replace(/"/g, "&quot;"); }
+function mdLite(str) {
+  const bold = (s) => s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  return esc(str || "").split("\n").map((line) => {
+    let m;
+    if ((m = /^###\s?(.*)$/.exec(line))) return `<div class="layout-h3">${bold(m[1])}</div>`;
+    if ((m = /^##\s?(.*)$/.exec(line))) return `<div class="layout-h2">${bold(m[1])}</div>`;
+    if ((m = /^#\s?(.*)$/.exec(line))) return `<div class="layout-h1">${bold(m[1])}</div>`;
+    if ((m = /^-#\s?(.*)$/.exec(line))) return `<div class="layout-sub">${bold(m[1])}</div>`;
+    return `<div>${bold(line)}</div>`;
+  }).join("");
+}
+function layoutRenderPreview() {
+  if (!LO.previewBody) return;
+  const accent = /^#[0-9a-f]{6}$/i.test(layoutState.accent || "") ? layoutState.accent : "#5b8cff";
+  if (LO.previewCard) LO.previewCard.style.borderLeftColor = accent;
+  const parts = (layoutState.blocks || []).map((b) => {
+    if (b.type === "text") return `<div class="layout-prev-text">${mdLite(b.content || "")}</div>`;
+    if (b.type === "divider") return `<div class="layout-prev-divider"></div>`;
+    if (b.type === "image") return b.url ? `<img class="layout-prev-image" src="${escAttr(b.url)}">` : "";
+    if (b.type === "section") {
+      const thumb = b.thumb ? `<img class="layout-prev-thumb" src="${escAttr(b.thumb)}">` : "";
+      return `<div class="layout-prev-section">${thumb}<div class="layout-prev-section-text">${mdLite(b.text || "")}</div></div>`;
+    }
+    if (b.type === "buttons") {
+      const items = (b.items || []).filter((it) => it.url);
+      if (!items.length) return "";
+      return `<div class="layout-prev-buttons">${items.map((it) => `<span class="layout-prev-btn">${esc(it.label || "Link")} ↗</span>`).join("")}</div>`;
+    }
+    return "";
+  });
+  LO.previewBody.innerHTML = parts.join("") || `<div class="layout-empty">Add a block to see the preview.</div>`;
+}
+function layoutRenderBlocks() {
+  if (!LO.blocks) return;
+  const blocks = layoutState.blocks || [];
+  LO.blocks.innerHTML = blocks.length ? blocks.map((b, i) => {
+    let fields = "";
+    if (b.type === "text") {
+      fields = `<textarea class="bot-input" data-i="${i}" data-f="content" placeholder="## Heading&#10;Some **bold** text">${esc(b.content || "")}</textarea>`;
+    } else if (b.type === "section") {
+      fields = `<textarea class="bot-input" data-i="${i}" data-f="text" placeholder="Section text">${esc(b.text || "")}</textarea>
+        <input class="bot-input" data-i="${i}" data-f="thumb" placeholder="Thumbnail image URL" value="${escAttr(b.thumb || "")}">`;
+    } else if (b.type === "image") {
+      fields = `<input class="bot-input" data-i="${i}" data-f="url" placeholder="Image URL" value="${escAttr(b.url || "")}">`;
+    } else if (b.type === "divider") {
+      fields = `<div class="layout-empty">No settings — just a divider line.</div>`;
+    } else if (b.type === "buttons") {
+      const items = b.items || [];
+      fields = `<div class="layout-btn-rows">${items.map((it, j) => `
+          <div class="layout-btn-row">
+            <input class="bot-input" data-i="${i}" data-j="${j}" data-f="label" placeholder="Label" value="${escAttr(it.label || "")}">
+            <input class="bot-input" data-i="${i}" data-j="${j}" data-f="url" placeholder="https://..." value="${escAttr(it.url || "")}">
+            <button class="layout-icon-btn danger layout-btn-rm" data-i="${i}" data-j="${j}" title="Remove button">✕</button>
+          </div>`).join("")}</div>
+        ${items.length < 5 ? `<button class="soft layout-btn-add" data-i="${i}">+ Button (${items.length}/5)</button>` : `<div class="layout-empty">Max 5 buttons.</div>`}`;
+    }
+    return `<div class="layout-block">
+      <div class="layout-block-head">
+        <span class="layout-block-tag">${layoutBlockLabel(b)}</span>
+        <div class="layout-block-actions">
+          <button class="layout-icon-btn" data-act="up" data-i="${i}" title="Move up">↑</button>
+          <button class="layout-icon-btn" data-act="down" data-i="${i}" title="Move down">↓</button>
+          <button class="layout-icon-btn danger" data-act="rm" data-i="${i}" title="Remove">✕</button>
+        </div>
+      </div>
+      <div class="layout-block-fields">${fields}</div>
+    </div>`;
+  }).join("") : `<div class="layout-empty">No blocks yet — add one below.</div>`;
+  layoutRenderPreview();
+}
+if (LO.blocks) {
+  $$(".layout-add-row [data-add]").forEach((btn) => btn.addEventListener("click", () => {
+    layoutState.blocks = layoutState.blocks || [];
+    layoutState.blocks.push(layoutDefaultBlock(btn.dataset.add));
+    layoutRenderBlocks();
+  }));
+  LO.blocks.addEventListener("input", (e) => {
+    const t = e.target;
+    if (t.dataset.f === undefined || t.dataset.i === undefined) return;
+    const b = layoutState.blocks[+t.dataset.i];
+    if (!b) return;
+    if (t.dataset.j !== undefined) {
+      const it = (b.items || [])[+t.dataset.j];
+      if (it) it[t.dataset.f] = t.value;
+    } else {
+      b[t.dataset.f] = t.value;
+    }
+    layoutRenderPreview();
+  });
+  LO.blocks.addEventListener("click", (e) => {
+    const add = e.target.closest(".layout-btn-add");
+    if (add) {
+      const b = layoutState.blocks[+add.dataset.i];
+      if (b) { b.items = b.items || []; if (b.items.length < 5) b.items.push({ label: "Link", url: "" }); }
+      layoutRenderBlocks();
+      return;
+    }
+    const rmBtn = e.target.closest(".layout-btn-rm");
+    if (rmBtn) {
+      const b = layoutState.blocks[+rmBtn.dataset.i];
+      if (b && b.items) b.items.splice(+rmBtn.dataset.j, 1);
+      layoutRenderBlocks();
+      return;
+    }
+    const actBtn = e.target.closest("[data-act]");
+    if (actBtn) {
+      const i = +actBtn.dataset.i, act = actBtn.dataset.act;
+      if (act === "rm") layoutState.blocks.splice(i, 1);
+      else if (act === "up" && i > 0) { const [x] = layoutState.blocks.splice(i, 1); layoutState.blocks.splice(i - 1, 0, x); }
+      else if (act === "down" && i < layoutState.blocks.length - 1) { const [x] = layoutState.blocks.splice(i, 1); layoutState.blocks.splice(i + 1, 0, x); }
+      layoutRenderBlocks();
+    }
+  });
+  LO.accentColor.addEventListener("input", () => {
+    LO.accent.value = LO.accentColor.value; layoutState.accent = LO.accentColor.value; layoutRenderPreview();
+  });
+  LO.accent.addEventListener("input", () => {
+    layoutState.accent = LO.accent.value.trim();
+    if (/^#[0-9a-f]{6}$/i.test(layoutState.accent)) LO.accentColor.value = layoutState.accent;
+    layoutRenderPreview();
+  });
+  LO.save.addEventListener("click", () => {
+    layoutState.accent = LO.accent.value.trim() || layoutState.accent;
+    window.beyond.layout({ action: "save", layout: layoutState });
+    LO.save.textContent = "Saving…";
+    setTimeout(() => (LO.save.textContent = "Save layout"), 1500);
+  });
+  LO.reload.addEventListener("click", () => window.beyond.layout({ action: "get" }));
+  LO.send.addEventListener("click", () => {
+    const cid = LO.channel.value.trim();
+    if (!/^\d+$/.test(cid)) { notify("warn", "Enter a valid channel ID first."); return; }
+    window.beyond.layout({ action: "send", channel_id: cid, layout: layoutState });
+  });
+}
+
 window.beyond.onEvent((evt) => {
   switch (evt.type) {
     case "ready":
@@ -995,6 +1148,12 @@ window.beyond.onEvent((evt) => {
       break;
     case "profile_state":
       profFill(evt.profile || {});
+      break;
+    case "layout_state":
+      layoutState = evt.layout || layoutState;
+      if (LO.accent) LO.accent.value = layoutState.accent || "#5b8cff";
+      if (LO.accentColor && /^#[0-9a-f]{6}$/i.test(layoutState.accent || "")) LO.accentColor.value = layoutState.accent;
+      layoutRenderBlocks();
       break;
     case "command":
       cmdCount++; $("#cmds").textContent = cmdCount;

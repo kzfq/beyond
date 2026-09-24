@@ -529,3 +529,44 @@ body {
 .pf-bio { color: var(--txt); font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
 
 @media (max-width: 1040px) { .prof-wrap { grid-template-columns: 1fr; } }
+
+.layout-wrap { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 18px; align-items: start; }
+.layout-editor { padding: 22px; display: flex; flex-direction: column; gap: 10px; }
+.layout-blocks { display: flex; flex-direction: column; gap: 10px; }
+.layout-block { border: 1px solid var(--border-2); border-radius: 12px; padding: 12px; background: rgba(255,255,255,0.03); }
+.layout-block-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.layout-block-tag { font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;
+  color: var(--accent); background: rgba(87,169,255,0.14); padding: 2px 9px; border-radius: 999px; }
+.layout-block-actions { margin-left: auto; display: flex; gap: 4px; }
+.layout-icon-btn { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px; border: 1px solid var(--border-2); background: rgba(255,255,255,0.04); color: var(--txt);
+  cursor: pointer; font-size: 13px; line-height: 1; }
+.layout-icon-btn:hover { background: rgba(87,169,255,0.14); border-color: var(--accent); color: var(--accent); }
+.layout-icon-btn.danger:hover { background: rgba(255,90,90,0.14); border-color: #ff5a5a; color: #ff5a5a; }
+.layout-block-fields { display: flex; flex-direction: column; gap: 8px; }
+.layout-block-fields textarea { resize: vertical; min-height: 64px; font-family: inherit; line-height: 1.4; }
+.layout-add-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.layout-btn-rows { display: flex; flex-direction: column; gap: 8px; }
+.layout-btn-row { display: flex; gap: 8px; align-items: center; }
+.layout-btn-row .bot-input { flex: 1; }
+.layout-empty { color: var(--faint); font-size: 12px; padding: 10px 2px; }
+
+.layout-preview { padding: 20px; }
+.layout-card { margin-top: 12px; border-radius: 10px; overflow: hidden; border-left: 4px solid var(--accent);
+  background: rgba(255,255,255,0.03); }
+.layout-card-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.layout-h1 { font-size: 19px; font-weight: 800; line-height: 1.3; }
+.layout-h2 { font-size: 16px; font-weight: 700; line-height: 1.3; }
+.layout-h3 { font-size: 14px; font-weight: 700; line-height: 1.3; }
+.layout-prev-text { font-size: 13px; line-height: 1.5; color: var(--txt); white-space: pre-wrap; word-break: break-word; }
+.layout-sub { font-size: 11px; color: var(--faint); }
+.layout-prev-divider { height: 1px; background: var(--border); margin: 2px 0; }
+.layout-prev-image { max-width: 100%; border-radius: 8px; display: block; }
+.layout-prev-section { display: flex; gap: 12px; align-items: flex-start; }
+.layout-prev-thumb { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; background: #10192c; flex-shrink: 0; }
+.layout-prev-section-text { flex: 1; font-size: 13px; line-height: 1.5; color: var(--txt); white-space: pre-wrap; word-break: break-word; }
+.layout-prev-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.layout-prev-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px;
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border-2); font-size: 12px; font-weight: 600; color: var(--txt); }
+
+@media (max-width: 1040px) { .layout-wrap { grid-template-columns: 1fr; } }

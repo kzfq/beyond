@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld("beyond", {
   logger: (payload) => ipcRenderer.send("logger", payload || {}),
   profile: (payload) => ipcRenderer.send("profile", payload || {}),
   account: (payload) => ipcRenderer.send("account", payload || {}),
+  layout: (payload) => ipcRenderer.send("layout", payload || {}),
   logout: () => ipcRenderer.send("logout"),
   savedToken: () => ipcRenderer.invoke("saved-token"),
   win: (action) => ipcRenderer.send("win", action),

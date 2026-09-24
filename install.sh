@@ -105,5 +105,11 @@ if ! pipi -r backend/requirements.txt; then
   pipi -r backend/requirements.txt
 fi
 
+# Belt-and-suspenders: force discord.py to a Components-V2-capable version.
+# The real bot's whole UI (buttons, dropdowns, images) needs >=2.6.0 — an
+# old already-installed copy has silently broken this before.
+say "Ensuring discord.py is Components-V2-capable (>=2.6.0)…"
+pipi --upgrade "discord.py>=2.6.0" || true
+
 say "Starting Beyond — your link + password appear below. Keep this running."
 exec "$PYBIN" backend/beyond_agent.py

@@ -916,6 +916,10 @@ if (PROF.apply) {
 }
 
 let layoutState = { accent: "#5b8cff", blocks: [] };
+let layoutLoaded = false;
+let layoutDirty = false; // true once the user has unsaved local edits — blocks
+                          // the periodic refresh's layout_state push from
+                          // clobbering in-progress work
 const LO = {
   blocks: $("#layoutBlocks"), accent: $("#layoutAccent"), accentColor: $("#layoutAccentColor"),
   save: $("#layoutSave"), reload: $("#layoutReload"), channel: $("#layoutChannel"), send: $("#layoutSend"),
@@ -1005,6 +1009,7 @@ function layoutRenderBlocks() {
 }
 if (LO.blocks) {
   $$(".layout-add-row [data-add]").forEach((btn) => btn.addEventListener("click", () => {
+    layoutDirty = true;
     layoutState.blocks = layoutState.blocks || [];
     layoutState.blocks.push(layoutDefaultBlock(btn.dataset.add));
     layoutRenderBlocks();
@@ -1014,6 +1019,7 @@ if (LO.blocks) {
     if (t.dataset.f === undefined || t.dataset.i === undefined) return;
     const b = layoutState.blocks[+t.dataset.i];
     if (!b) return;
+    layoutDirty = true;
     if (t.dataset.j !== undefined) {
       const it = (b.items || [])[+t.dataset.j];
       if (it) it[t.dataset.f] = t.value;
@@ -1025,6 +1031,7 @@ if (LO.blocks) {
   LO.blocks.addEventListener("click", (e) => {
     const add = e.target.closest(".layout-btn-add");
     if (add) {
+      layoutDirty = true;
       const b = layoutState.blocks[+add.dataset.i];
       if (b) { b.items = b.items || []; if (b.items.length < 5) b.items.push({ label: "Link", url: "" }); }
       layoutRenderBlocks();
@@ -1032,6 +1039,7 @@ if (LO.blocks) {
     }
     const rmBtn = e.target.closest(".layout-btn-rm");
     if (rmBtn) {
+      layoutDirty = true;
       const b = layoutState.blocks[+rmBtn.dataset.i];
       if (b && b.items) b.items.splice(+rmBtn.dataset.j, 1);
       layoutRenderBlocks();
@@ -1039,6 +1047,7 @@ if (LO.blocks) {
     }
     const actBtn = e.target.closest("[data-act]");
     if (actBtn) {
+      layoutDirty = true;
       const i = +actBtn.dataset.i, act = actBtn.dataset.act;
       if (act === "rm") layoutState.blocks.splice(i, 1);
       else if (act === "up" && i > 0) { const [x] = layoutState.blocks.splice(i, 1); layoutState.blocks.splice(i - 1, 0, x); }
@@ -1047,20 +1056,35 @@ if (LO.blocks) {
     }
   });
   LO.accentColor.addEventListener("input", () => {
+    layoutDirty = true;
     LO.accent.value = LO.accentColor.value; layoutState.accent = LO.accentColor.value; layoutRenderPreview();
   });
   LO.accent.addEventListener("input", () => {
+    layoutDirty = true;
     layoutState.accent = LO.accent.value.trim();
     if (/^#[0-9a-f]{6}$/i.test(layoutState.accent)) LO.accentColor.value = layoutState.accent;
     layoutRenderPreview();
   });
   LO.save.addEventListener("click", () => {
+    if (!layoutLoaded) {
+      notify("warn", "Still loading your current card — wait a second and try again so you don't overwrite it.");
+      return;
+    }
     layoutState.accent = LO.accent.value.trim() || layoutState.accent;
     window.beyond.layout({ action: "save", layout: layoutState });
+    layoutDirty = false;
     LO.save.textContent = "Saving…";
     setTimeout(() => (LO.save.textContent = "Save layout"), 1500);
   });
-  LO.reload.addEventListener("click", () => window.beyond.layout({ action: "get" }));
+  LO.reload.addEventListener("click", () => {
+    layoutDirty = false;
+    window.beyond.layout({ action: "get" });
+  });
+  // Don't rely solely on the backend's post-login/refresh push — a viewer
+  // that connects later (e.g. through the relay) can miss that push
+  // entirely and start editing from a blank card, which then overwrites
+  // the real saved layout on Save. Ask for the current state right away.
+  window.beyond.layout({ action: "get" });
   LO.send.addEventListener("click", () => {
     const cid = LO.channel.value.trim();
     if (!/^\d+$/.test(cid)) { notify("warn", "Enter a valid channel ID first."); return; }
@@ -1150,6 +1174,8 @@ window.beyond.onEvent((evt) => {
       profFill(evt.profile || {});
       break;
     case "layout_state":
+      layoutLoaded = true;
+      if (layoutDirty) break; // don't clobber unsaved edits with a periodic push
       layoutState = evt.layout || layoutState;
       if (LO.accent) LO.accent.value = layoutState.accent || "#5b8cff";
       if (LO.accentColor && /^#[0-9a-f]{6}$/i.test(layoutState.accent || "")) LO.accentColor.value = layoutState.accent;

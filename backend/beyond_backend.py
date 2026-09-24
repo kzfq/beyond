@@ -817,10 +817,14 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
         def __init__(self, cat="overview"):
             super().__init__(timeout=180)
             c = _help_container(cat)
-            row = discord.ui.ActionRow()
-            for name in BOT_HELP:
-                row.add_item(_CatButton(name))
-            c.add_item(row)
+            # Discord caps an ActionRow at 5 buttons — with 10+ categories we
+            # need to spread the buttons across several rows, not one.
+            names = list(BOT_HELP)
+            for i in range(0, len(names), 5):
+                row = discord.ui.ActionRow()
+                for name in names[i:i + 5]:
+                    row.add_item(_CatButton(name))
+                c.add_item(row)
             row2 = discord.ui.ActionRow()
             if cat != "overview":
                 row2.add_item(_HomeButton())

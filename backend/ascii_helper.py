@@ -5,6 +5,7 @@ asend. Every reply is rendered with the shared ANSI style (ansi.py), deletes the
 invoking command immediately, and self-deletes after `delay` seconds.
 """
 import asyncio
+import sys
 
 import ansi
 
@@ -13,26 +14,44 @@ import ansi
 _TASKS = set()
 
 
+def _diag(msg: str) -> None:
+    """Write straight to stderr — visible in the agent's terminal/log stream
+    without needing to plumb beyond_backend.log() into every cog module."""
+    try:
+        sys.stderr.write(f"[beyond] {msg}\n")
+        sys.stderr.flush()
+    except Exception:
+        pass
+
+
 async def _send_and_expire(ctx, text, delay=15):
     # delete the invoking command message immediately
     try:
         await ctx.message.delete()
-    except Exception:
-        pass
+    except Exception as e:
+        _diag(f"could not delete command message: {e!r}")
+
     m = None
     try:
         m = await ctx.send(text)
-    except Exception:
+    except Exception as e:
+        _diag(f"send() failed, no reply to auto-delete: {e!r}")
         return
     if m is None:
+        _diag("send() returned no message object — auto-delete timer NOT scheduled")
         return
 
     async def _rm():
         try:
             await asyncio.sleep(max(1, int(delay or 15)))
+        except asyncio.CancelledError:
+            _diag(f"auto-delete timer for message {getattr(m, 'id', '?')} was cancelled")
+            raise
+        try:
             await m.delete()
-        except Exception:
-            pass
+        except Exception as e:
+            # was it already gone (user deleted it manually) vs. a real failure?
+            _diag(f"auto-delete of message {getattr(m, 'id', '?')} failed: {e!r}")
 
     t = asyncio.create_task(_rm())
     _TASKS.add(t)

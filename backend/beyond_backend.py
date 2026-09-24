@@ -53,7 +53,14 @@ BOT_HELP = {
     "Group Chat": [("gclockdown", "Re-add removed GC members"),
                    ("gcantiadd", "Kick users added to the GC"),
                    ("gcwhitelist", "Exempt a user from GC protection"),
-                   ("gcunwhitelist", "Remove a user from the GC whitelist")],
+                   ("gcunwhitelist", "Remove a user from the GC whitelist"),
+                   ("gcicon", "Get the GC icon URL"),
+                   ("setgcicon", "Set the GC icon"),
+                   ("gcadd", "Add a friend to the GC"),
+                   ("gcremove", "Remove a user from the GC"),
+                   ("gcremoveall", "Remove all GC members"),
+                   ("massgcleave", "Leave all group chats"),
+                   ("friendlink", "Generate a friend invite")],
     "Friends": [("friendcount", "Friend/block/pending counts"),
                 ("friend", "Send a friend request"),
                 ("unfriend", "Remove a friend"),
@@ -92,6 +99,7 @@ _profile_cog = None
 _antigc_cog = None
 _friends_cog = None
 _gc_cog = None
+_gcextra_cog = None
 _DISCOVER_RPC_KEY = "beyond_promo"
 
 def emit(obj: dict) -> None:
@@ -179,6 +187,18 @@ HELP = {
             ("gcantiadd", "gcantiadd <on/off>", "Kick anyone added to the GC."),
             ("gcwhitelist", "gcwhitelist <user>", "Exempt a user from GC protection."),
             ("gcunwhitelist", "gcunwhitelist <user>", "Remove a user from the GC whitelist."),
+        ],
+    },
+    "gcextra": {
+        "desc": "GC tools & members",
+        "cmds": [
+            ("gcicon", "gcicon", "Get the current GC's icon URL."),
+            ("setgcicon", "setgcicon <url>", "Set the GC icon from a URL."),
+            ("gcadd", "gcadd <username>", "Add a friend to this GC by username."),
+            ("gcremove", "gcremove <username>", "Remove a user from this GC by username."),
+            ("gcremoveall", "gcremoveall", "Remove all members from this GC."),
+            ("massgcleave", "massgcleave", "Leave all private group chats."),
+            ("friendlink", "friendlink [days] [max_uses]", "Generate a friend invite link."),
         ],
     },
     "antigc": {
@@ -1128,6 +1148,77 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
         cid = str(getattr(interaction, "channel_id", "") or "")
         await _rpc_reply(interaction, _gc_cog.wl_remove(cid, user))
 
+    def _need_gcx():
+        return _gcextra_cog is None
+
+    def _icid(interaction):
+        return str(getattr(interaction, "channel_id", "") or "")
+
+    @tree.command(name="gcicon", description="Get the current GC's icon URL")
+    @user_installable
+    async def _gcicon(interaction):
+        if _need_gcx():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, await _gcextra_cog.get_icon(_icid(interaction)))
+
+    @tree.command(name="setgcicon", description="Set the GC icon from a URL")
+    @user_installable
+    @app_commands.describe(url="Image URL")
+    async def _setgcicon(interaction, url: str):
+        if _need_gcx():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, await _gcextra_cog.set_icon(_icid(interaction), url))
+
+    @tree.command(name="gcadd", description="Add a friend to this GC by username")
+    @user_installable
+    @app_commands.describe(username="Friend's username")
+    async def _gcadd(interaction, username: str):
+        if _need_gcx():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, await _gcextra_cog.add_member(_icid(interaction), username))
+
+    @tree.command(name="gcremove", description="Remove a user from this GC by username")
+    @user_installable
+    @app_commands.describe(username="Username to remove")
+    async def _gcremove(interaction, username: str):
+        if _need_gcx():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, await _gcextra_cog.remove_member(_icid(interaction), username))
+
+    @tree.command(name="gcremoveall", description="Remove all members from this GC")
+    @user_installable
+    async def _gcremoveall(interaction):
+        if _need_gcx():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, "Removing all members…")
+        emit({"type": "command"})
+        try:
+            await interaction.followup.send(await _gcextra_cog.remove_all(_icid(interaction)),
+                                            ephemeral=bool(CFG.get("private")))
+        except Exception:
+            pass
+
+    @tree.command(name="massgcleave", description="Leave all private group chats")
+    @user_installable
+    async def _massgcleave(interaction):
+        if _need_gcx():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, "Leaving all group chats…")
+        emit({"type": "command"})
+        try:
+            await interaction.followup.send(await _gcextra_cog.mass_leave(),
+                                            ephemeral=bool(CFG.get("private")))
+        except Exception:
+            pass
+
+    @tree.command(name="friendlink", description="Generate a friend invite link")
+    @user_installable
+    @app_commands.describe(days="Days until expiry (default 7)", max_uses="Max uses (default 10)")
+    async def _friendlink(interaction, days: _Opt[int] = 7, max_uses: _Opt[int] = 10):
+        if _need_gcx():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, await _gcextra_cog.friend_link(days or 7, max_uses or 10))
+
     @client.event
     async def on_ready():
 
@@ -1284,7 +1375,7 @@ def _upsert_account(token: str, stats: dict, make_active: bool = True) -> dict:
     return rec
 
 async def _teardown_bot() -> None:
-    global _bot, _bot_task, _rpc_cog, _spotify_cog, _logger_cog, _profile_cog, _antigc_cog, _friends_cog, _gc_cog
+    global _bot, _bot_task, _rpc_cog, _spotify_cog, _logger_cog, _profile_cog, _antigc_cog, _friends_cog, _gc_cog, _gcextra_cog
     if _gc_cog is not None:
         try:
             _gc_cog.stop()
@@ -1309,6 +1400,7 @@ async def _teardown_bot() -> None:
     _antigc_cog = None
     _friends_cog = None
     _gc_cog = None
+    _gcextra_cog = None
 
 async def _switch_to_token(token: str) -> None:
     """Tear down the current account and log in with another (one active at a time)."""
@@ -1338,7 +1430,7 @@ async def _account_remove(aid: str) -> None:
 
 async def handle(cmd: dict, state: dict):
     global _bot, _bot_task, _rpc_cog, _realbot_task, OWNER_ID, _bot_app_id, _userapp_watch_task, _spotify_cog
-    global _logger_cog, _profile_cog, _antigc_cog, _friends_cog, _gc_cog, _ACTIVE_ID
+    global _logger_cog, _profile_cog, _antigc_cog, _friends_cog, _gc_cog, _gcextra_cog, _ACTIVE_ID
     c = cmd.get("cmd")
 
     if c == "login":
@@ -1421,6 +1513,15 @@ async def handle(cmd: dict, state: dict):
                 except Exception as e:
                     _gc_cog = None
                     log(f"gc cog failed to load: {e}\n" + traceback.format_exc())
+
+                try:
+                    import gcextra_cog
+                    _gcextra_cog = gcextra_cog.GCExtra(_bot)
+                    _bot.add_cog(_gcextra_cog)
+                    log("GC extra cog loaded")
+                except Exception as e:
+                    _gcextra_cog = None
+                    log(f"gcextra cog failed to load: {e}\n" + traceback.format_exc())
             stats = await build_stats(_bot)
         except Exception as e:
             emit({"type": "login_error", "msg": str(e)})

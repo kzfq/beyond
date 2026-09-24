@@ -77,7 +77,18 @@ fi
 
 # --- python deps (use wheels; only build from source if wheels are missing) ---
 export SODIUM_INSTALL=system
-pipi() { "$PYBIN" -m pip install "$@" --break-system-packages 2>/dev/null || "$PYBIN" -m pip install "$@"; }
+
+# Many distros/containers (Debian/Ubuntu 23.04+, Fedora, Termux, most Docker
+# images) mark the system Python as "externally managed" (PEP 668) and refuse
+# a bare `pip install`. --break-system-packages overrides that. Safe here:
+# Beyond is installed to run standalone, not alongside other apt-managed
+# Python packages. Detect support once so every pip call below is a single
+# clean run instead of try-then-silently-fall-back-and-retry.
+PIP_EXTRA=""
+if "$PYBIN" -m pip install --help 2>/dev/null | grep -q -- '--break-system-packages'; then
+  PIP_EXTRA="--break-system-packages"
+fi
+pipi() { "$PYBIN" -m pip install $PIP_EXTRA "$@"; }
 
 say "Upgrading pip…"; pipi --upgrade pip || true
 say "Installing Python dependencies (may take a few minutes)…"

@@ -50,6 +50,12 @@ BOT_HELP = {
     "Logger": [("logger", "Track keywords/mentions, log deletes & edits")],
     "Profile": [("profile", "Set display name, avatar, banner, bio, pronouns, accent")],
     "Anti-GC": [("antigc", "Auto-leave group-DM traps (+ block/msg/name/icon/webhook/whitelist)")],
+    "Guild": [("guilds", "List your servers"),
+              ("massleave", "Leave all non-owned servers"),
+              ("setclan", "Set your clan tag"),
+              ("clearclan", "Clear your clan tag"),
+              ("rotatetags", "Rotate clan tags across servers"),
+              ("stoprotatetags", "Stop tag rotation")],
     "Group Chat": [("gclockdown", "Re-add removed GC members"),
                    ("gcantiadd", "Kick users added to the GC"),
                    ("gcwhitelist", "Exempt a user from GC protection"),
@@ -100,6 +106,7 @@ _antigc_cog = None
 _friends_cog = None
 _gc_cog = None
 _gcextra_cog = None
+_guild_cog = None
 _DISCOVER_RPC_KEY = "beyond_promo"
 
 def emit(obj: dict) -> None:
@@ -199,6 +206,17 @@ HELP = {
             ("gcremoveall", "gcremoveall", "Remove all members from this GC."),
             ("massgcleave", "massgcleave", "Leave all private group chats."),
             ("friendlink", "friendlink [days] [max_uses]", "Generate a friend invite link."),
+        ],
+    },
+    "guild": {
+        "desc": "Server management",
+        "cmds": [
+            ("guilds", "guilds [page]", "List servers you're in with member counts."),
+            ("massleave", "massleave [id,id,...]", "Leave all non-owned servers (excludes optional)."),
+            ("setclan", "setclan <guild_id>", "Set your clan tag to a server you're in."),
+            ("clearclan", "clearclan", "Clear your current clan tag."),
+            ("rotatetags", "rotatetags <i1> <i2> ... [Nm]", "Rotate clan tags across servers by index."),
+            ("stoprotatetags", "stoprotatetags", "Stop guild tag rotation."),
         ],
     },
     "antigc": {
@@ -1219,6 +1237,62 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
             await _rpc_reply(interaction, "Log into your account in Beyond first."); return
         await _rpc_reply(interaction, await _gcextra_cog.friend_link(days or 7, max_uses or 10))
 
+    def _need_guild():
+        return _guild_cog is None
+
+    @tree.command(name="guilds", description="List servers you're in")
+    @user_installable
+    @app_commands.describe(page="Page number")
+    async def _guilds(interaction, page: _Opt[int] = 1):
+        if _need_guild():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, await _guild_cog.list_block(page or 1))
+
+    @tree.command(name="massleave", description="Leave all non-owned servers")
+    @user_installable
+    @app_commands.describe(exclude="Comma-separated guild ids to keep")
+    async def _massleave(interaction, exclude: _Opt[str] = None):
+        if _need_guild():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        ex = {p.strip() for p in (exclude or "").split(",") if p.strip()}
+        await _rpc_reply(interaction, "Leaving servers…")
+        emit({"type": "command"})
+        try:
+            await interaction.followup.send(await _guild_cog.mass_leave(ex),
+                                            ephemeral=bool(CFG.get("private")))
+        except Exception:
+            pass
+
+    @tree.command(name="setclan", description="Set your clan tag to a server you're in")
+    @user_installable
+    @app_commands.describe(guild_id="Server id")
+    async def _setclan(interaction, guild_id: str):
+        if _need_guild():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, await _guild_cog.set_clan(guild_id))
+
+    @tree.command(name="clearclan", description="Clear your clan tag")
+    @user_installable
+    async def _clearclan(interaction):
+        if _need_guild():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, await _guild_cog.clear_clan())
+
+    @tree.command(name="rotatetags", description="Rotate clan tags across servers by index")
+    @user_installable
+    @app_commands.describe(indexes="e.g. '1 3 5 10m' (indexes then optional Nm delay)")
+    async def _rotatetags(interaction, indexes: str):
+        if _need_guild():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, _guild_cog.start_rotation(indexes))
+
+    @tree.command(name="stoprotatetags", description="Stop guild tag rotation")
+    @user_installable
+    async def _stoprotatetags(interaction):
+        if _need_guild():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, _guild_cog.stop_rotation())
+
     @client.event
     async def on_ready():
 
@@ -1375,12 +1449,13 @@ def _upsert_account(token: str, stats: dict, make_active: bool = True) -> dict:
     return rec
 
 async def _teardown_bot() -> None:
-    global _bot, _bot_task, _rpc_cog, _spotify_cog, _logger_cog, _profile_cog, _antigc_cog, _friends_cog, _gc_cog, _gcextra_cog
-    if _gc_cog is not None:
-        try:
-            _gc_cog.stop()
-        except Exception:
-            pass
+    global _bot, _bot_task, _rpc_cog, _spotify_cog, _logger_cog, _profile_cog, _antigc_cog, _friends_cog, _gc_cog, _gcextra_cog, _guild_cog
+    for _c in (_gc_cog, _guild_cog):
+        if _c is not None:
+            try:
+                _c.stop()
+            except Exception:
+                pass
     if _bot_task is not None:
         try:
             _bot_task.cancel()
@@ -1401,6 +1476,7 @@ async def _teardown_bot() -> None:
     _friends_cog = None
     _gc_cog = None
     _gcextra_cog = None
+    _guild_cog = None
 
 async def _switch_to_token(token: str) -> None:
     """Tear down the current account and log in with another (one active at a time)."""
@@ -1430,7 +1506,7 @@ async def _account_remove(aid: str) -> None:
 
 async def handle(cmd: dict, state: dict):
     global _bot, _bot_task, _rpc_cog, _realbot_task, OWNER_ID, _bot_app_id, _userapp_watch_task, _spotify_cog
-    global _logger_cog, _profile_cog, _antigc_cog, _friends_cog, _gc_cog, _gcextra_cog, _ACTIVE_ID
+    global _logger_cog, _profile_cog, _antigc_cog, _friends_cog, _gc_cog, _gcextra_cog, _guild_cog, _ACTIVE_ID
     c = cmd.get("cmd")
 
     if c == "login":
@@ -1522,6 +1598,15 @@ async def handle(cmd: dict, state: dict):
                 except Exception as e:
                     _gcextra_cog = None
                     log(f"gcextra cog failed to load: {e}\n" + traceback.format_exc())
+
+                try:
+                    import guild_cog
+                    _guild_cog = guild_cog.Guild(_bot)
+                    _bot.add_cog(_guild_cog)
+                    log("Guild cog loaded")
+                except Exception as e:
+                    _guild_cog = None
+                    log(f"guild cog failed to load: {e}\n" + traceback.format_exc())
             stats = await build_stats(_bot)
         except Exception as e:
             emit({"type": "login_error", "msg": str(e)})

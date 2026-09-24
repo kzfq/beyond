@@ -10,7 +10,6 @@ Reacts to CHANNEL_RECIPIENT_ADD / CHANNEL_RECIPIENT_REMOVE gateway events —
 no polling. Logic lives in reusable methods for selfbot + /slash commands.
 """
 
-from __future__ import annotations
 
 from modifyself.commands.cog import Cog, listener
 from modifyself.commands.core import command

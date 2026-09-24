@@ -7,7 +7,6 @@ remove everyone, leave every group chat, and generate a friend-invite link.
 Logic lives in reusable methods so the selfbot and /slash commands share it.
 """
 
-from __future__ import annotations
 
 import asyncio
 import base64

@@ -19,11 +19,47 @@ stdio protocol (newline JSON):
 import asyncio
 import json
 import os
+import re
 import secrets
 import sys
 import traceback
 
 import ansi
+
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _strip_ansi(text: str) -> str:
+    """Convert an ansi.py-formatted string (raw escape codes, ```ansi fences,
+    "> " blockquote markers) into plain text for a Components-V2 TextDisplay.
+    The selfbot keeps the raw ANSI/code-fence version; the real bot never does."""
+    if not text:
+        return "​"
+    text = _ANSI_ESCAPE_RE.sub("", text)
+    lines = []
+    for line in text.split("\n"):
+        s = line.strip()
+        # ansi._block() prefixes EVERY line, including the code-fence markers
+        # themselves, with "> " — strip that first, then drop the bare fences.
+        if s.startswith("> "):
+            s = s[2:]
+        elif s == ">":
+            s = ""
+        if s.strip() in ("```ansi", "```"):
+            continue
+        lines.append(s)
+    out, prev_blank = [], False
+    for l in lines:
+        blank = not l.strip()
+        if blank and prev_blank:
+            continue
+        out.append(l)
+        prev_blank = blank
+    while out and not out[0].strip():
+        out.pop(0)
+    while out and not out[-1].strip():
+        out.pop()
+    return "\n".join(out)[:3900] or "​"
 
 for _stream in (sys.stdout, sys.stderr):
     try:
@@ -55,7 +91,14 @@ BOT_HELP = {
               ("setclan", "Set your clan tag"),
               ("clearclan", "Clear your clan tag"),
               ("rotatetags", "Rotate clan tags across servers"),
-              ("stoprotatetags", "Stop tag rotation")],
+              ("stoprotatetags", "Stop tag rotation"),
+              ("clone", "Copy a server's layout here (wipes target)")],
+    "Reactions": [("superreact", "Super-react to a user's messages"),
+                  ("superreactstop", "Stop super-reacting to a user"),
+                  ("cyclesuperreact", "Cycle emojis on a user's messages"),
+                  ("cyclesuperreactstop", "Stop cycle react on a user"),
+                  ("multisuperreact", "React with several emojis"),
+                  ("multisuperreactstop", "Stop multi react on a user")],
     "Group Chat": [("gclockdown", "Re-add removed GC members"),
                    ("gcantiadd", "Kick users added to the GC"),
                    ("gcwhitelist", "Exempt a user from GC protection"),
@@ -107,6 +150,7 @@ _friends_cog = None
 _gc_cog = None
 _gcextra_cog = None
 _guild_cog = None
+_reactions_cog = None
 _DISCOVER_RPC_KEY = "beyond_promo"
 
 def emit(obj: dict) -> None:
@@ -217,6 +261,18 @@ HELP = {
             ("clearclan", "clearclan", "Clear your current clan tag."),
             ("rotatetags", "rotatetags <i1> <i2> ... [Nm]", "Rotate clan tags across servers by index."),
             ("stoprotatetags", "stoprotatetags", "Stop guild tag rotation."),
+            ("clone", "clone <server_id>", "Copy a server's roles/channels here (wipes target first)."),
+        ],
+    },
+    "reactions": {
+        "desc": "Reaction automation",
+        "cmds": [
+            ("superreact", "superreact <user> <emoji>", "Super-react to every message from a user."),
+            ("superreactstop", "superreactstop <user>", "Stop super-reacting to a user."),
+            ("cyclesuperreact", "cyclesuperreact <user> <e1,e2,...>", "Cycle emojis on each message."),
+            ("cyclesuperreactstop", "cyclesuperreactstop <user>", "Stop cycle super-react on a user."),
+            ("multisuperreact", "multisuperreact <user> <e1,e2,...>", "React with several emojis on every message."),
+            ("multisuperreactstop", "multisuperreactstop <user>", "Stop multi super-react on a user."),
         ],
     },
     "antigc": {
@@ -715,12 +771,47 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
 
     from typing import Literal, Optional as _Opt
 
+    def _v2_reply_view(text):
+        """Build a Components-V2 card wrapping a (possibly ansi-formatted) reply."""
+        try:
+            view = discord.ui.LayoutView()
+            c = discord.ui.Container(accent_colour=discord.Colour(ACCENT))
+            c.add_item(discord.ui.TextDisplay(_strip_ansi(text)))
+            row = discord.ui.ActionRow()
+            row.add_item(discord.ui.Button(style=discord.ButtonStyle.link, label="GitHub", url=REPO_URL))
+            c.add_item(row)
+            view.add_item(c)
+            return view
+        except Exception as e:
+            log(f"v2 reply build failed: {e}")
+            return None
+
     async def _rpc_reply(interaction, text):
         emit({"type": "command"})
+        eph = bool(CFG.get("private"))
+        view = _v2_reply_view(text)
         try:
-            await interaction.response.send_message(text, ephemeral=bool(CFG.get("private")))
-        except Exception:
-            pass
+            if view is not None:
+                await interaction.response.send_message(view=view, ephemeral=eph)
+            else:
+                await interaction.response.send_message(_strip_ansi(text), ephemeral=eph)
+        except Exception as e:
+            log(f"rpc_reply failed: {e}")
+            try:
+                await interaction.response.send_message(_strip_ansi(text), ephemeral=eph)
+            except Exception:
+                pass
+
+    async def _followup_v2(interaction, text):
+        eph = bool(CFG.get("private"))
+        view = _v2_reply_view(text)
+        try:
+            if view is not None:
+                await interaction.followup.send(view=view, ephemeral=eph)
+            else:
+                await interaction.followup.send(_strip_ansi(text), ephemeral=eph)
+        except Exception as e:
+            log(f"followup_v2 failed: {e}")
 
     def _need_selfbot():
         return _rpc_cog is None or _bot is None
@@ -941,6 +1032,17 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
         except Exception as e:
             await _rpc_reply(interaction, f"Failed: {e}")
 
+    @tree.command(name="msglog", description="Control the Beyond message logger (alias of /logger)")
+    @user_installable
+    @app_commands.describe(
+        action="What to do", value="keyword to add/remove, or scope id (guild/channel)",
+        scope="Where to watch (only for action=scope)")
+    async def _msglog(interaction,
+                      action: Literal["on", "off", "status", "add", "remove", "scope"],
+                      value: _Opt[str] = None,
+                      scope: _Opt[Literal["all", "dms", "guilds", "guild", "channel"]] = None):
+        await _logger.callback(interaction, action=action, value=value, scope=scope)
+
     @tree.command(name="profile", description="Update your account profile")
     @user_installable
     @app_commands.describe(
@@ -971,6 +1073,56 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
                 await _rpc_reply(interaction, "✅ Profile updated: " + ", ".join(result.get("changed") or ["nothing"]))
         except Exception as e:
             await _rpc_reply(interaction, f"Failed: {e}")
+
+    async def _profile_field_reply(interaction, field, value, label):
+        if _profile_cog is None:
+            await _rpc_reply(interaction, "Log into your account in Beyond first.")
+            return
+        try:
+            result = await _profile_cog.apply({field: value})
+            emit(await _profile_cog.snapshot())
+            if result.get("errors"):
+                await _rpc_reply(interaction, ansi.error("; ".join(result["errors"])))
+            else:
+                await _rpc_reply(interaction, ansi.success(f"{label} updated."))
+        except Exception as e:
+            await _rpc_reply(interaction, ansi.error(f"Failed: {e}"))
+
+    @tree.command(name="setdisplayname", description="Set your display name")
+    @user_installable
+    @app_commands.describe(name="New display name")
+    async def _setdisplayname(interaction, name: str):
+        await _profile_field_reply(interaction, "display_name", name, "Display name")
+
+    @tree.command(name="setbio", description="Set your About Me")
+    @user_installable
+    @app_commands.describe(text="New About Me text")
+    async def _setbio(interaction, text: str):
+        await _profile_field_reply(interaction, "bio", text, "Bio")
+
+    @tree.command(name="setpronouns", description="Set your pronouns")
+    @user_installable
+    @app_commands.describe(text="Pronouns")
+    async def _setpronouns(interaction, text: str):
+        await _profile_field_reply(interaction, "pronouns", text, "Pronouns")
+
+    @tree.command(name="setaccent", description="Set your profile accent colour")
+    @user_installable
+    @app_commands.describe(color="Accent colour hex (e.g. #5b8cff)")
+    async def _setaccent(interaction, color: str):
+        await _profile_field_reply(interaction, "accent", color, "Accent colour")
+
+    @tree.command(name="setpfp", description="Set your avatar from an image URL")
+    @user_installable
+    @app_commands.describe(url="Image URL (blank/'remove' to clear)")
+    async def _setpfp(interaction, url: str):
+        await _profile_field_reply(interaction, "avatar", url, "Avatar")
+
+    @tree.command(name="setbanner", description="Set your profile banner from an image URL")
+    @user_installable
+    @app_commands.describe(url="Image URL (blank/'remove' to clear)")
+    async def _setbanner(interaction, url: str):
+        await _profile_field_reply(interaction, "banner", url, "Banner")
 
     @tree.command(name="antigc", description="Auto-leave group-DM traps")
     @user_installable
@@ -1021,6 +1173,89 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
             await _rpc_reply(interaction, msg)
         except Exception as e:
             await _rpc_reply(interaction, f"Failed: {e}")
+
+    def _need_antigc():
+        return _antigc_cog is None
+
+    @tree.command(name="antigctrap", description="Toggle the anti-GC trap")
+    @user_installable
+    @app_commands.describe(state="on or off")
+    async def _antigctrap(interaction, state: Literal["on", "off"]):
+        if _need_antigc():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        _antigc_cog.state["enabled"] = (state == "on"); _antigc_cog._save()
+        await _rpc_reply(interaction, ansi.success(f"Anti-GCTrap {'enabled' if state == 'on' else 'disabled'}."))
+
+    @tree.command(name="agctblock", description="Auto-block the GC creator on leave")
+    @user_installable
+    @app_commands.describe(state="on or off")
+    async def _agctblock(interaction, state: Literal["on", "off"]):
+        if _need_antigc():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        _antigc_cog.state["block"] = (state == "on"); _antigc_cog._save()
+        await _rpc_reply(interaction, ansi.success(f"Auto-block {'enabled' if state == 'on' else 'disabled'}."))
+
+    @tree.command(name="agctmsg", description="Message sent before leaving a GC trap")
+    @user_installable
+    @app_commands.describe(message="Message to send")
+    async def _agctmsg(interaction, message: str):
+        if _need_antigc():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        _antigc_cog.state["leave_msg"] = message; _antigc_cog._save()
+        await _rpc_reply(interaction, ansi.success("Leave message set."))
+
+    @tree.command(name="agctname", description="Rename the GC before leaving")
+    @user_installable
+    @app_commands.describe(name="New GC name")
+    async def _agctname(interaction, name: str):
+        if _need_antigc():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        _antigc_cog.state["gc_name"] = name; _antigc_cog._save()
+        await _rpc_reply(interaction, ansi.success("GC rename set."))
+
+    @tree.command(name="agcticon", description="Set the GC icon before leaving")
+    @user_installable
+    @app_commands.describe(url="Image URL")
+    async def _agcticon(interaction, url: str):
+        if _need_antigc():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        _antigc_cog.state["gc_icon_url"] = url or None; _antigc_cog._save()
+        await _rpc_reply(interaction, ansi.success("GC icon set."))
+
+    @tree.command(name="agctwebhook", description="Webhook for trap alerts")
+    @user_installable
+    @app_commands.describe(url="Webhook URL (blank to clear)")
+    async def _agctwebhook(interaction, url: _Opt[str] = None):
+        if _need_antigc():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        _antigc_cog.state["webhook_url"] = url or None; _antigc_cog._save()
+        await _rpc_reply(interaction, ansi.success("Webhook set." if url else "Webhook cleared."))
+
+    @tree.command(name="agctwl", description="Whitelist a user from GC protection")
+    @user_installable
+    @app_commands.describe(user="User id")
+    async def _agctwl(interaction, user: str):
+        if _need_antigc():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        _antigc_cog.whitelist.add(user.strip("<@!>")); _antigc_cog._save_wl()
+        await _rpc_reply(interaction, ansi.success(f"Whitelisted {user}."))
+
+    @tree.command(name="agctunwl", description="Remove a user from the anti-GC whitelist")
+    @user_installable
+    @app_commands.describe(user="User id")
+    async def _agctunwl(interaction, user: str):
+        if _need_antigc():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        _antigc_cog.whitelist.discard(user.strip("<@!>")); _antigc_cog._save_wl()
+        await _rpc_reply(interaction, ansi.success(f"Unwhitelisted {user}."))
+
+    @tree.command(name="agctwllist", description="List anti-GC whitelisted users")
+    @user_installable
+    async def _agctwllist(interaction):
+        if _need_antigc():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        wl = sorted(_antigc_cog.whitelist)
+        await _rpc_reply(interaction, "\n".join(wl) if wl else "Whitelist is empty.")
 
     def _need_friends():
         return _friends_cog is None
@@ -1091,12 +1326,7 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
         if _need_friends():
             await _rpc_reply(interaction, "Log into your account in Beyond first."); return
         await _rpc_reply(interaction, "Removing all friends…")
-        emit({"type": "command"})
-        try:
-            await interaction.followup.send(await _friends_cog.do_massunfriend(),
-                                            ephemeral=bool(CFG.get("private")))
-        except Exception:
-            pass
+        await _followup_v2(interaction, await _friends_cog.do_massunfriend())
 
     @tree.command(name="closedms", description="Close all open DM channels")
     @user_installable
@@ -1104,12 +1334,7 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
         if _need_friends():
             await _rpc_reply(interaction, "Log into your account in Beyond first."); return
         await _rpc_reply(interaction, "Closing DMs…")
-        emit({"type": "command"})
-        try:
-            await interaction.followup.send(await _friends_cog.do_closedms(),
-                                            ephemeral=bool(CFG.get("private")))
-        except Exception:
-            pass
+        await _followup_v2(interaction, await _friends_cog.do_closedms())
 
     @tree.command(name="autoreply", description="Auto-reply to a user's messages")
     @user_installable
@@ -1209,12 +1434,7 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
         if _need_gcx():
             await _rpc_reply(interaction, "Log into your account in Beyond first."); return
         await _rpc_reply(interaction, "Removing all members…")
-        emit({"type": "command"})
-        try:
-            await interaction.followup.send(await _gcextra_cog.remove_all(_icid(interaction)),
-                                            ephemeral=bool(CFG.get("private")))
-        except Exception:
-            pass
+        await _followup_v2(interaction, await _gcextra_cog.remove_all(_icid(interaction)))
 
     @tree.command(name="massgcleave", description="Leave all private group chats")
     @user_installable
@@ -1222,12 +1442,7 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
         if _need_gcx():
             await _rpc_reply(interaction, "Log into your account in Beyond first."); return
         await _rpc_reply(interaction, "Leaving all group chats…")
-        emit({"type": "command"})
-        try:
-            await interaction.followup.send(await _gcextra_cog.mass_leave(),
-                                            ephemeral=bool(CFG.get("private")))
-        except Exception:
-            pass
+        await _followup_v2(interaction, await _gcextra_cog.mass_leave())
 
     @tree.command(name="friendlink", description="Generate a friend invite link")
     @user_installable
@@ -1256,12 +1471,7 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
             await _rpc_reply(interaction, "Log into your account in Beyond first."); return
         ex = {p.strip() for p in (exclude or "").split(",") if p.strip()}
         await _rpc_reply(interaction, "Leaving servers…")
-        emit({"type": "command"})
-        try:
-            await interaction.followup.send(await _guild_cog.mass_leave(ex),
-                                            ephemeral=bool(CFG.get("private")))
-        except Exception:
-            pass
+        await _followup_v2(interaction, await _guild_cog.mass_leave(ex))
 
     @tree.command(name="setclan", description="Set your clan tag to a server you're in")
     @user_installable
@@ -1292,6 +1502,69 @@ async def start_realbot(token: str, app_id: str, guild_id: str = ""):
         if _need_guild():
             await _rpc_reply(interaction, "Log into your account in Beyond first."); return
         await _rpc_reply(interaction, _guild_cog.stop_rotation())
+
+    @tree.command(name="clone", description="Copy a server's roles/channels here (wipes target first)")
+    @user_installable
+    @app_commands.describe(server_id="Source server id to copy from")
+    async def _clone(interaction, server_id: str):
+        if _need_guild():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        target = str(getattr(interaction, "guild_id", "") or "")
+        if not target:
+            await _rpc_reply(interaction, "Run this inside the target server."); return
+        await _rpc_reply(interaction, "Cloning — wiping target, then copying…")
+        await _followup_v2(interaction, await _guild_cog.do_clone(server_id, target))
+
+    def _need_react():
+        return _reactions_cog is None
+
+    @tree.command(name="superreact", description="Super-react to every message from a user")
+    @user_installable
+    @app_commands.describe(user="User id", emoji="Emoji to react with")
+    async def _superreact(interaction, user: str, emoji: str):
+        if _need_react():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, _reactions_cog.set_single(user, emoji))
+
+    @tree.command(name="superreactstop", description="Stop super-reacting to a user")
+    @user_installable
+    @app_commands.describe(user="User id")
+    async def _superreactstop(interaction, user: str):
+        if _need_react():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, _reactions_cog.unset("single", user))
+
+    @tree.command(name="cyclesuperreact", description="Cycle emojis on every message from a user")
+    @user_installable
+    @app_commands.describe(user="User id", emojis="Comma-separated emojis")
+    async def _cyclesuperreact(interaction, user: str, emojis: str):
+        if _need_react():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, _reactions_cog.set_cycle(user, emojis))
+
+    @tree.command(name="cyclesuperreactstop", description="Stop cycle super-react on a user")
+    @user_installable
+    @app_commands.describe(user="User id")
+    async def _cyclesuperreactstop(interaction, user: str):
+        if _need_react():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, _reactions_cog.unset("cycle", user))
+
+    @tree.command(name="multisuperreact", description="React with several emojis on every message from a user")
+    @user_installable
+    @app_commands.describe(user="User id", emojis="Comma-separated emojis")
+    async def _multisuperreact(interaction, user: str, emojis: str):
+        if _need_react():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, _reactions_cog.set_multi(user, emojis))
+
+    @tree.command(name="multisuperreactstop", description="Stop multi super-react on a user")
+    @user_installable
+    @app_commands.describe(user="User id")
+    async def _multisuperreactstop(interaction, user: str):
+        if _need_react():
+            await _rpc_reply(interaction, "Log into your account in Beyond first."); return
+        await _rpc_reply(interaction, _reactions_cog.unset("multi", user))
 
     @client.event
     async def on_ready():
@@ -1449,8 +1722,8 @@ def _upsert_account(token: str, stats: dict, make_active: bool = True) -> dict:
     return rec
 
 async def _teardown_bot() -> None:
-    global _bot, _bot_task, _rpc_cog, _spotify_cog, _logger_cog, _profile_cog, _antigc_cog, _friends_cog, _gc_cog, _gcextra_cog, _guild_cog
-    for _c in (_gc_cog, _guild_cog):
+    global _bot, _bot_task, _rpc_cog, _spotify_cog, _logger_cog, _profile_cog, _antigc_cog, _friends_cog, _gc_cog, _gcextra_cog, _guild_cog, _reactions_cog
+    for _c in (_gc_cog, _guild_cog, _reactions_cog):
         if _c is not None:
             try:
                 _c.stop()
@@ -1477,6 +1750,7 @@ async def _teardown_bot() -> None:
     _gc_cog = None
     _gcextra_cog = None
     _guild_cog = None
+    _reactions_cog = None
 
 async def _switch_to_token(token: str) -> None:
     """Tear down the current account and log in with another (one active at a time)."""
@@ -1506,7 +1780,7 @@ async def _account_remove(aid: str) -> None:
 
 async def handle(cmd: dict, state: dict):
     global _bot, _bot_task, _rpc_cog, _realbot_task, OWNER_ID, _bot_app_id, _userapp_watch_task, _spotify_cog
-    global _logger_cog, _profile_cog, _antigc_cog, _friends_cog, _gc_cog, _gcextra_cog, _guild_cog, _ACTIVE_ID
+    global _logger_cog, _profile_cog, _antigc_cog, _friends_cog, _gc_cog, _gcextra_cog, _guild_cog, _reactions_cog, _ACTIVE_ID
     c = cmd.get("cmd")
 
     if c == "login":
@@ -1607,6 +1881,15 @@ async def handle(cmd: dict, state: dict):
                 except Exception as e:
                     _guild_cog = None
                     log(f"guild cog failed to load: {e}\n" + traceback.format_exc())
+
+                try:
+                    import reactions_cog
+                    _reactions_cog = reactions_cog.Reactions(_bot)
+                    _bot.add_cog(_reactions_cog)
+                    log("Reactions cog loaded")
+                except Exception as e:
+                    _reactions_cog = None
+                    log(f"reactions cog failed to load: {e}\n" + traceback.format_exc())
             stats = await build_stats(_bot)
         except Exception as e:
             emit({"type": "login_error", "msg": str(e)})

@@ -9,7 +9,6 @@ Ported to modifyself: listens on CHANNEL_CREATE, acts through bot._http routes,
 replies through the shared ANSI helper (command deletes, reply self-deletes).
 """
 
-from __future__ import annotations
 
 import asyncio
 import base64

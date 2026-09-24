@@ -8,7 +8,6 @@ Logic lives in reusable async methods (do_* / *_block) so the selfbot commands
 and the /slash commands in beyond_backend share one implementation.
 """
 
-from __future__ import annotations
 
 import asyncio
 import datetime
@@ -119,8 +118,11 @@ class Friends(Cog, ASCIIMixin):
             return ansi.error("Provide a username or id.")
         try:
             if target.isdigit():
+                # Discord's client sends an EMPTY body here — {"type": 1} is what
+                # you PUT to accept an incoming request, and 400s (80005) on a
+                # user who hasn't sent you one. An empty body sends a NEW request.
                 await self.bot._http.request(
-                    Route("PUT", f"/users/@me/relationships/{target}"), json={"type": 1})
+                    Route("PUT", f"/users/@me/relationships/{target}"), json={})
                 return ansi.success(f"Friend request sent to {target}.")
             payload = {"username": target, "discriminator": None}
             if "#" in target:

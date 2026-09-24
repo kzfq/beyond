@@ -9,7 +9,6 @@ servers, set/clear your clan (guild) tag, and rotate the tag across servers.
 Logic lives in reusable methods so the selfbot and /slash commands share it.
 """
 
-from __future__ import annotations
 
 import asyncio
 import random
@@ -31,6 +30,7 @@ COMMANDS_INFO = {
     "clearclan":      ("clearclan", "Clear your current clan tag"),
     "rotatetags":     ("rotatetags <i1> <i2> ... [Nm]", "Rotate clan tags across servers by index"),
     "stoprotatetags": ("stoprotatetags", "Stop guild tag rotation"),
+    "clone":          ("clone <server_id>", "Copy another server's roles/channels here (wipes target first)"),
 }
 
 
@@ -116,6 +116,102 @@ class Guild(Cog):
         except Exception as e:
             return ansi.error(f"Failed: {e}")
 
+    # ── clone (copy a server's roles + channels into one you administer) ──
+    async def _safe(self, method, path, **kw):
+        """Rate-limit-aware request: retries on 429/5xx with backoff."""
+        for attempt in range(4):
+            try:
+                return await self.bot._http.request(Route(method, path), **kw)
+            except Exception as e:
+                msg = str(e).lower()
+                if "429" in msg or "rate" in msg:
+                    await asyncio.sleep(min(2 ** attempt + 1, 10))
+                    continue
+                if attempt < 3:
+                    await asyncio.sleep(1.0)
+                    continue
+                return None
+        return None
+
+    async def do_clone(self, source_id: str, target_id: str) -> str:
+        source_id = (source_id or "").strip()
+        if not source_id.isdigit():
+            return ansi.error("Invalid source server id.")
+        if not target_id:
+            return ansi.error("Run this in the target server.")
+        if str(source_id) == str(target_id):
+            return ansi.error("Source and target are the same server.")
+
+        src = await self._safe("GET", f"/guilds/{source_id}")
+        if not src:
+            return ansi.error("Couldn't fetch the source server (are you in it?).")
+        src_roles = await self._safe("GET", f"/guilds/{source_id}/roles") or []
+        src_chans = await self._safe("GET", f"/guilds/{source_id}/channels") or []
+
+        # wipe target (only affects a server you have Manage perms in)
+        for c in (await self._safe("GET", f"/guilds/{target_id}/channels") or []):
+            await self._safe("DELETE", f"/channels/{c['id']}")
+            await asyncio.sleep(0.5)
+        for r in (await self._safe("GET", f"/guilds/{target_id}/roles") or []):
+            if r.get("name") == "@everyone" or r.get("managed"):
+                continue
+            await self._safe("DELETE", f"/guilds/{target_id}/roles/{r['id']}")
+            await asyncio.sleep(0.5)
+
+        # identity
+        await self._safe("PATCH", f"/guilds/{target_id}", json={"name": src.get("name", "server")})
+
+        # roles (low position first; @everyone id == guild id)
+        roles_made = 0
+        for r in sorted(src_roles, key=lambda x: x.get("position", 0)):
+            if r.get("name") == "@everyone":
+                await self._safe("PATCH", f"/guilds/{target_id}/roles/{target_id}",
+                                 json={"permissions": r.get("permissions", "0")})
+                continue
+            if r.get("managed"):
+                continue
+            res = await self._safe("POST", f"/guilds/{target_id}/roles", json={
+                "name": r.get("name", "role"),
+                "permissions": r.get("permissions", "0"),
+                "color": r.get("color", 0),
+                "hoist": r.get("hoist", False),
+                "mentionable": r.get("mentionable", False),
+            })
+            if res:
+                roles_made += 1
+            await asyncio.sleep(0.8)
+
+        # channels: categories first, then everything else under its parent
+        chan_map = {}
+        chans_made = 0
+        cats = sorted([c for c in src_chans if c.get("type") == 4], key=lambda c: c.get("position", 0))
+        others = sorted([c for c in src_chans if c.get("type") != 4], key=lambda c: c.get("position", 0))
+        for c in cats:
+            res = await self._safe("POST", f"/guilds/{target_id}/channels",
+                                   json={"name": c["name"], "type": 4, "position": c.get("position", 0)})
+            if res:
+                chan_map[c["id"]] = res["id"]
+                chans_made += 1
+            await asyncio.sleep(0.6)
+        for c in others:
+            payload = {"name": c["name"], "type": c.get("type", 0), "position": c.get("position", 0)}
+            pid = chan_map.get(c.get("parent_id"))
+            if pid:
+                payload["parent_id"] = pid
+            for k in ("topic", "nsfw", "rate_limit_per_user", "bitrate", "user_limit"):
+                if c.get(k) is not None:
+                    payload[k] = c[k]
+            res = await self._safe("POST", f"/guilds/{target_id}/channels", json=payload)
+            if res:
+                chan_map[c["id"]] = res["id"]
+                chans_made += 1
+            await asyncio.sleep(0.6)
+
+        return (ansi.header("clone complete") + "\n"
+                + ansi.command_list([("Roles", str(roles_made)),
+                                     ("Channels", str(chans_made)),
+                                     ("Source", str(source_id))]))
+
     async def _rotate_loop(self, indexes: list, delay_mins: float):
         counter = 0
         while True:
@@ -186,6 +282,26 @@ class Guild(Cog):
     @command(name="stoprotatetags")
     async def stoprotatetags(self, ctx, *, value: str = ""):
         await send_temp(ctx, self.stop_rotation(), 10)
+
+    @staticmethod
+    def _gid(ctx) -> str:
+        v = getattr(ctx, "guild_id", None)
+        if v:
+            return str(v)
+        m = getattr(ctx, "message", None)
+        return str(getattr(m, "guild_id", "") or "")
+
+    @command(name="clone")
+    async def clone(self, ctx, *, value: str = ""):
+        if not value.strip():
+            await send_temp(ctx, ansi.command_usage("clone", *COMMANDS_INFO["clone"], "."), 10)
+            return
+        target = self._gid(ctx)
+        if not target:
+            await send_temp(ctx, ansi.error("Run this inside the target server."), 10)
+            return
+        await send_temp(ctx, ansi.success("Cloning — wiping target, then copying roles & channels…"), 120)
+        await send_temp(ctx, await self.do_clone(value.strip(), target), 30)
 
 
 def setup(bot):

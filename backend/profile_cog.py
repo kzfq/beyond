@@ -13,7 +13,6 @@ Drives the Beyond "Profile" tab via IPC and mirrors every field as a
 Only touches YOUR OWN account through Discord's normal profile endpoints.
 """
 
-from __future__ import annotations
 
 import asyncio
 import base64

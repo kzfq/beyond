@@ -1,2 +1,7 @@
 modifyself
-discord.py>=2.3
+# Components V2 (LayoutView/Container/TextDisplay/ActionRow-in-Container) was
+# added in discord.py 2.6.0 — the real bot's whole CV2 UI needs it. Pinning
+# just >=2.3 meant `pip install -r requirements.txt` silently left an older
+# already-installed discord.py alone (pip only upgrades when the pin isn't
+# satisfied), so the bot quietly fell back to plain text with no error.
+discord.py>=2.6.0

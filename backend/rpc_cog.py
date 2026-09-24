@@ -367,6 +367,17 @@ class RPC(Cog, ASCIIMixin):
         if self._dash_task is None or self._dash_task.done():
             self._dash_task = asyncio.ensure_future(self._dashboard_queue_loop())
 
+    @listener()
+    async def on_resumed(self, *_):
+        # A gateway RESUME (vs. a fresh READY after re-identify) doesn't
+        # reliably keep custom Rich Presence showing on the account — it can
+        # silently drop, and without this the _keepalive_loop wouldn't push
+        # it back until its next tick, up to 25 minutes later. Reapply right
+        # away so a resume never leaves the presence looking "randomly
+        # stopped" for that long.
+        if self._active:
+            asyncio.ensure_future(self._reapply())
+
     def _dashboard_queue_path(self) -> str:
         return os.path.join(persistence.instance_dir(), "dashboard_rpc.json")
 
@@ -653,7 +664,18 @@ class RPC(Cog, ASCIIMixin):
 
     async def _build_activity(self, cmd: dict) -> Optional[dict]:
         rpc_type = cmd.get("rpc_type", "").lower()
-        t = int(time.time() * 1000)
+        # Freeze the "now" this activity's timestamps are anchored to the
+        # first time it's built, and reuse it on every later rebuild of the
+        # *same* cmd dict (keepalive resends, a reconnect's _reapply()).
+        # Recomputing "now" fresh on every resend was resetting Discord's
+        # displayed elapsed time back to 0 every 25 minutes instead of
+        # letting it keep counting up — the whole point of a keepalive is
+        # to keep the presence alive without visibly restarting it.
+        t = cmd.get("_t0")
+        if t is None:
+            t = int(time.time() * 1000)
+            cmd["_t0"] = t
+            self._save_rpc()
         spoof = str(cmd.get("spoof", "")).lower() in ("true", "1", "yes")
 
         def ts_now():

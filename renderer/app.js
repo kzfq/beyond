@@ -145,6 +145,28 @@ $("#loginBtn").addEventListener("click", () => {
 });
 tokenInput.addEventListener("keydown", (e) => { if (e.key === "Enter") $("#loginBtn").click(); });
 
+// ---- token helper bookmarklet ----
+(function () {
+  const BKM = 'javascript:(function(){var t="";try{t=(localStorage.token||"").replace(/"/g,"");}catch(e){}if(!t){try{var f=document.createElement("iframe");document.head.appendChild(f);t=(f.contentWindow.localStorage.token||"").replace(/"/g,"");document.head.removeChild(f);}catch(e){}}if(!t){alert("Token not found — make sure you are on discord.com and logged in.");return;}navigator.clipboard.writeText(t).then(function(){alert("✓ Token copied! Paste it in Beyond.");},function(){prompt("Your token:",t);});})();';
+  const modal = $("#tokenModal");
+  const bkmLink = $("#tokenBkm");
+  if (bkmLink) bkmLink.href = BKM;
+  function openModal() { modal.classList.remove("hidden"); }
+  function closeModal() { modal.classList.add("hidden"); }
+  const helper = $("#tokenHelper");
+  if (helper) helper.addEventListener("click", openModal);
+  const closeBtn = $("#tokenModalClose");
+  if (closeBtn) closeBtn.addEventListener("click", closeModal);
+  modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+  const copyBtn = $("#copyBkm");
+  if (copyBtn) copyBtn.addEventListener("click", () => {
+    navigator.clipboard.writeText(BKM).then(
+      () => { copyBtn.textContent = "Copied!"; setTimeout(() => { copyBtn.textContent = "Copy bookmarklet URL"; }, 2200); },
+      () => {}
+    );
+  });
+})();
+
 // ---- accounts (multi-account switcher) ----
 let accounts = [];
 let activeId = null;

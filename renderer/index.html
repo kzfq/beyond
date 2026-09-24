@@ -40,6 +40,7 @@
           </button>
         </div>
       </label>
+      <button type="button" id="tokenHelper" class="token-helper-link">Don't have your token? Get it →</button>
       <label class="remember">
         <input id="remember" type="checkbox" />
         <span>Remember me on this device</span>
@@ -47,6 +48,30 @@
       <button id="loginBtn" class="primary wide">Login</button>
       <div id="loginError" class="login-error"></div>
       <p class="login-note">Beyond runs as your account through the Python (modifyself) backend. Automating a user account breaks Discord's ToS and can get it banned — use an account you're willing to lose.</p>
+    </div>
+
+    <div id="tokenModal" class="tmod hidden">
+      <div class="tmod-box">
+        <button type="button" id="tokenModalClose" class="tmod-close" title="Close">
+          <svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2L2 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+        <div class="tmod-title">Get your Discord token</div>
+        <ol class="tmod-steps">
+          <li>Drag the button below onto your <strong>bookmarks bar</strong>:</li>
+        </ol>
+        <div class="tmod-drag-row">
+          <a id="tokenBkm" class="tmod-bkm" href="#" draggable="true">Get Discord Token</a>
+          <span class="tmod-drag-hint">← drag this to bookmarks bar</span>
+        </div>
+        <ol class="tmod-steps" start="2">
+          <li>Open <strong>discord.com</strong> in a browser tab while logged in</li>
+          <li>Click the bookmark — your token is copied to clipboard</li>
+          <li>Paste it into the token field here</li>
+        </ol>
+        <div class="tmod-alt">
+          Can't drag? <button type="button" id="copyBkm" class="ghost-link">Copy bookmarklet URL</button> and paste it into a new bookmark manually.
+        </div>
+      </div>
     </div>
   </div>
 

@@ -112,6 +112,54 @@ body {
 .login-error { color: var(--err); font-size: 13px; min-height: 18px; margin-top: 10px; text-align: center; }
 .login-note { color: var(--faint); font-size: 11px; line-height: 1.5; margin-top: 14px; text-align: center; }
 
+.token-helper-link {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--accent); font-size: 12px; display: block; width: 100%;
+  text-align: right; margin-top: 6px; opacity: 0.75;
+}
+.token-helper-link:hover { opacity: 1; text-decoration: underline; }
+
+.tmod {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(6,10,20,0.8); backdrop-filter: blur(4px);
+}
+.tmod.hidden { display: none; }
+.tmod-box {
+  background: #111827; border: 1px solid var(--border-2); border-radius: 16px;
+  padding: 28px 30px 24px; max-width: 380px; width: 92%;
+  position: relative;
+}
+.tmod-close {
+  position: absolute; top: 14px; right: 14px;
+  background: none; border: none; cursor: pointer; color: var(--muted);
+  width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+}
+.tmod-close:hover { background: rgba(255,255,255,0.08); color: var(--txt); }
+.tmod-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; padding-right: 24px; }
+.tmod-steps {
+  font-size: 13px; line-height: 1.75; color: var(--muted);
+  padding-left: 18px; margin-bottom: 0;
+}
+.tmod-steps li { margin-bottom: 2px; }
+.tmod-steps strong { color: var(--txt); }
+.tmod-drag-row { display: flex; align-items: center; gap: 12px; margin: 14px 0; }
+.tmod-bkm {
+  display: inline-block; padding: 8px 16px; border-radius: 8px;
+  background: linear-gradient(120deg, #4a8fff, #6c7bff);
+  color: #fff; font-size: 13px; font-weight: 600;
+  text-decoration: none; cursor: grab; white-space: nowrap;
+  box-shadow: 0 2px 12px rgba(87,169,255,0.3);
+  user-select: none;
+}
+.tmod-bkm:active { cursor: grabbing; }
+.tmod-bkm:hover { box-shadow: 0 4px 18px rgba(87,169,255,0.5); }
+.tmod-drag-hint { font-size: 12px; color: var(--faint); }
+.tmod-alt { font-size: 12px; color: var(--faint); margin-top: 14px; }
+.ghost-link { background: none; border: none; color: var(--accent); font-size: 12px; cursor: pointer; padding: 0; }
+.ghost-link:hover { text-decoration: underline; }
+
 .primary, .soft, .wide {
   border: 0; cursor: pointer; font-family: inherit; font-weight: 600; font-size: 13px;
   border-radius: 11px; padding: 11px 16px; transition: 0.16s; color: #fff;

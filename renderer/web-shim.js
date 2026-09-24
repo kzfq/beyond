@@ -15,6 +15,12 @@
   var agentOnline = true;
   var offlineTimer = null;
 
+  // Resolves once the relay WS first connects so savedToken can return
+  // without waiting — web viewers never need to log in, the PC backend is
+  // already running; the ready event from refresh() will show the app.
+  var firstConnectResolve = null;
+  var firstConnectPromise = new Promise(function (r) { firstConnectResolve = r; });
+
   function emitLocal(evt) {
     for (var i = 0; i < listeners.length; i++) {
       try { listeners[i](evt); } catch (_) {}
@@ -80,6 +86,7 @@
     ws.onopen = function () {
       connected = true;
       backoff = 1000;
+      if (firstConnectResolve) { var res = firstConnectResolve; firstConnectResolve = null; res(); }
       if (agentOnline) hideOverlay();
       while (outbox.length && ws.readyState === 1) ws.send(outbox.shift());
     };
@@ -160,7 +167,14 @@
     layout: function (payload) { sendCmd(Object.assign({ cmd: "layout" }, payload || {})); },
     logout: function () { sendCmd({ cmd: "logout" }); },
 
-    savedToken: function () { return Promise.resolve(null); },
+    savedToken: function () {
+      // In web mode the backend is already running; skip the login screen by
+      // resolving once the relay connects, or falling back to null after 6 s
+      // so the login form still shows when the relay itself is unreachable.
+      var webReady = firstConnectPromise.then(function () { return "__WEB__"; });
+      var timedOut = new Promise(function (r) { setTimeout(function () { r(null); }, 6000); });
+      return Promise.race([webReady, timedOut]);
+    },
 
     win: function () {},
     openExternal: function (url) { try { window.open(url, "_blank", "noopener"); } catch (_) {} },

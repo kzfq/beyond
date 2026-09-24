@@ -1220,5 +1220,13 @@ setInterval(() => { if (!appEl.classList.contains("hidden")) window.beyond.refre
 
 (async () => {
   const saved = await window.beyond.savedToken();
-  if (saved) { $("#remember").checked = true; doLogin(saved, true, true); }
+  if (saved === "__WEB__") {
+    // Web viewer: backend is already running on the PC — don't send a login
+    // command (that would kill and restart the Python process). Just ask for
+    // a fresh snapshot; the ready event handler will flip to the app view.
+    window.beyond.refresh();
+  } else if (saved) {
+    $("#remember").checked = true;
+    doLogin(saved, true, true);
+  }
 })();

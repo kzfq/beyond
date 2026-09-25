@@ -118,9 +118,16 @@ class Friends(Cog, ASCIIMixin):
             return ansi.error("Provide a username or id.")
         try:
             if target.isdigit():
-                # Discord's client sends an EMPTY body here — {"type": 1} is what
-                # you PUT to accept an incoming request, and 400s (80005) on a
-                # user who hasn't sent you one. An empty body sends a NEW request.
+                # If they already sent us a request (type 3), accept it — trying
+                # to PUT a new request to someone waiting on you returns 400.
+                rels = await self._rels()
+                existing = next((r for r in rels if str(r.get("user", {}).get("id")) == target), None)
+                if existing and existing.get("type") == 3:
+                    await self.bot._http.request(
+                        Route("PUT", f"/users/@me/relationships/{target}"), json={})
+                    return ansi.success(f"Accepted friend request from {target}.")
+                # Discord's client sends an EMPTY body — {"type": 1} 400s when
+                # there's no incoming request. Empty body sends a NEW request.
                 await self.bot._http.request(
                     Route("PUT", f"/users/@me/relationships/{target}"), json={})
                 return ansi.success(f"Friend request sent to {target}.")
